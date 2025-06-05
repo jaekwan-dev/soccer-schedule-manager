@@ -133,7 +133,7 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* 헤더 */}
-        <div className="bg-white border-b border-gray-100 px-3 py-2">
+        <div className="bg-white border-b border-gray-100 px-5 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-gray-900">관리자 로그인</h1>
@@ -186,7 +186,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
-      <div className="bg-white border-b border-gray-100 px-3 py-2">
+      <div className="bg-white border-b border-gray-100 px-5 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-gray-900">관리자</h1>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import type { Match } from "@/types/match"
 import Link from "next/link"
 import { MapPin, Users, Clock, Calendar, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
+import Image from 'next/image'
 
 // 샘플 데이터
 const sampleMatches: Match[] = [
@@ -15,11 +16,11 @@ const sampleMatches: Match[] = [
     id: "1",
     date: "2025-06-15",
     time: "14:00",
-    venue: "서울월드컵경기장",
+    venue: "안양 수도군단시설",
     voteDeadline: "2025-06-13",
     attendanceVotes: {
-      attend: 8,
-      absent: 3,
+      attend: 2,
+      absent: 1,
     },
     voters: [
       { name: "김철수", vote: "attend", votedAt: "2025-06-10T10:00:00Z" },
@@ -31,32 +32,17 @@ const sampleMatches: Match[] = [
     id: "2",
     date: "2025-06-22",
     time: "16:00",
-    venue: "수원월드컵경기장",
+    venue: "안산 수암꿈나무체육공원",
     voteDeadline: "2025-06-20",
     attendanceVotes: {
-      attend: 12,
-      absent: 1,
+      attend: 2,
+      absent: 0,
     },
     voters: [
       { name: "최지훈", vote: "attend", votedAt: "2025-06-18T09:00:00Z" },
       { name: "정수연", vote: "attend", votedAt: "2025-06-18T10:00:00Z" },
     ],
-  },
-  {
-    id: "3",
-    date: "2025-06-29",
-    time: "19:00",
-    venue: "인천축구전용경기장",
-    voteDeadline: "2025-06-27",
-    attendanceVotes: {
-      attend: 6,
-      absent: 5,
-    },
-    voters: [
-      { name: "홍길동", vote: "attend", votedAt: "2025-06-25T14:00:00Z" },
-      { name: "김영수", vote: "absent", votedAt: "2025-06-25T15:00:00Z" },
-    ],
-  },
+  }
 ]
 
 export default function Home() {
@@ -186,9 +172,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
-      <div className="bg-white border-b border-gray-100 px-3 py-2">
+      <div className="bg-white border-b border-gray-100 px-5 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <Image 
+              src="/logo.png" 
+              alt="뻥랩 로고" 
+              width={32} 
+              height={32} 
+              className="rounded-full"
+            />
             <h1 className="text-xl font-bold text-gray-900">뻥랩</h1>
           </div>
           <div className="flex items-center gap-2">
