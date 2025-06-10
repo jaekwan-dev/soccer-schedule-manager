@@ -90,12 +90,13 @@ export default function Home() {
     if (!voterName.trim() || !selectedVote) return
 
     try {
-      const response = await fetch(`/api/matches/${matchId}/vote`, {
+      const response = await fetch(`/api/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          id: matchId,
           name: voterName.trim(),
           vote: selectedVote,
         }),

@@ -15,18 +15,14 @@ export async function OPTIONS() {
 }
 
 // POST: 경기 참석 투표
-export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest) {
   try {
-    const { id } = await context.params;
     const body = await request.json();
-    const { name, vote } = body;
+    const { id, name, vote } = body;
 
     console.log('투표 요청:', { id, name, vote });
 
-    if (!name || !vote || !['attend', 'absent'].includes(vote)) {
+    if (!id || !name || !vote || !['attend', 'absent'].includes(vote)) {
       return NextResponse.json({ error: '올바른 투표 정보가 필요합니다.' }, { status: 400 });
     }
 
