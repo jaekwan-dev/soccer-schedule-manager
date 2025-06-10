@@ -56,7 +56,17 @@ export default function Home() {
         
         if (matchesResponse.ok) {
           const matchesData = await matchesResponse.json()
-          setMatches(matchesData)
+          // 오늘 날짜 이후의 경기만 필터링
+          const today = new Date()
+          today.setHours(0, 0, 0, 0) // 시간을 00:00:00으로 설정
+          
+          const upcomingMatches = matchesData.filter((match: Match) => {
+            const matchDate = new Date(match.date)
+            matchDate.setHours(0, 0, 0, 0) // 시간을 00:00:00으로 설정
+            return matchDate >= today // 오늘 이후의 경기만 포함
+          })
+          
+          setMatches(upcomingMatches)
         } else {
           console.error('경기 일정을 불러오는데 실패했습니다.')
         }
