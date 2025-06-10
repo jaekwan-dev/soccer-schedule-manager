@@ -790,6 +790,7 @@ export default function AdminPage() {
                             <div className="mb-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="text-lg font-bold text-gray-900">{dateInfo.fullDate}</div>
+                                <div className="text-base font-semibold text-blue-600">{match.time}</div>
                                 {isPassed && (
                                   <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">
                                     투표 마감
@@ -801,101 +802,108 @@ export default function AdminPage() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-base font-semibold text-blue-600">{match.time}</div>
                             </div>
 
-                            {/* 경기장 정보 */}
-                            <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
-                              <MapPin className="h-4 w-4" />
-                              <span>{match.venue}</span>
-                            </div>
-
-                            {/* 참석 정보 */}
-                            <div className="flex items-center gap-4 text-sm mb-2">
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-green-600 font-medium">참석 {match.attendanceVotes.attend}/{match.maxAttendees || 20}명</span>
+                            {/* 경기장 정보와 참석 정보 */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-1 text-sm text-gray-600">
+                                <MapPin className="h-4 w-4" />
+                                <span>{match.venue}</span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                <span className="text-red-600 font-medium">불참 {match.attendanceVotes.absent}명</span>
+
+                              {/* 참석/불참 정보 - 칩 모양 */}
+                              <div className="flex items-center gap-2 text-xs">
+                                <div className="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
+                                  <span className="font-medium">참석</span>
+                                  <span className="font-bold">{match.attendanceVotes.attend}/{match.maxAttendees || 20}</span>
+                                </div>
+                                <div className="px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded-full flex items-center gap-1">
+                                  <span className="font-medium">불참</span>
+                                  <span className="font-bold">{match.attendanceVotes.absent}</span>
+                                </div>
                               </div>
                             </div>
 
                             {/* 투표 마감일시 */}
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
                               <Clock className="h-3 w-3" />
                               <span>투표 마감: {deadlineInfo.fullDate} {match.voteDeadlineTime || '23:59'}</span>
                             </div>
+                          </div>
+                        </div>
 
-                            {/* 참석자/불참자 목록 */}
-                            {match.voters && match.voters.length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-gray-100">
-                                <div className="grid grid-cols-2 gap-4">
-                                  {/* 참석자 */}
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                      <span className="text-sm font-medium text-gray-700">참석자</span>
-                                      <span className="text-xs text-gray-500">
-                                        {match.voters.filter(v => v.vote === 'attend').length}명
+                        {/* 참석자/불참자 목록 */}
+                        {match.voters && match.voters.length > 0 && (
+                          <div className="pt-3 border-t border-gray-100">
+                            <div className="grid grid-cols-2 gap-4">
+                              {/* 참석자 */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-sm font-medium text-gray-700">참석자</span>
+                                  <span className="text-xs text-gray-500">
+                                    {match.voters.filter(v => v.vote === 'attend').length}명
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {match.voters
+                                    .filter(voter => voter.vote === 'attend')
+                                    .map((voter, index) => (
+                                      <span key={index} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
+                                        {voter.name}
                                       </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                      {match.voters
-                                        .filter(voter => voter.vote === 'attend')
-                                        .map((voter, index) => (
-                                          <span key={index} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
-                                            {voter.name}
-                                          </span>
-                                        ))}
-                                      {match.voters.filter(v => v.vote === 'attend').length === 0 && (
-                                        <span className="text-xs text-gray-400">아직 없음</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* 불참자 */}
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                      <span className="text-sm font-medium text-gray-700">불참자</span>
-                                      <span className="text-xs text-gray-500">
-                                        {match.voters.filter(v => v.vote === 'absent').length}명
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                      {match.voters
-                                        .filter(voter => voter.vote === 'absent')
-                                        .map((voter, index) => (
-                                          <span key={index} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded">
-                                            {voter.name}
-                                          </span>
-                                        ))}
-                                      {match.voters.filter(v => v.vote === 'absent').length === 0 && (
-                                        <span className="text-xs text-gray-400">아직 없음</span>
-                                      )}
-                                    </div>
-                                  </div>
+                                    ))}
+                                  {match.voters.filter(v => v.vote === 'attend').length === 0 && (
+                                    <span className="text-xs text-gray-400">아직 없음</span>
+                                  )}
                                 </div>
                               </div>
-                            )}
+                              
+                              {/* 불참자 */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                  <span className="text-sm font-medium text-gray-700">불참자</span>
+                                  <span className="text-xs text-gray-500">
+                                    {match.voters.filter(v => v.vote === 'absent').length}명
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {match.voters
+                                    .filter(voter => voter.vote === 'absent')
+                                    .map((voter, index) => (
+                                      <span key={index} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded">
+                                        {voter.name}
+                                      </span>
+                                    ))}
+                                  {match.voters.filter(v => v.vote === 'absent').length === 0 && (
+                                    <span className="text-xs text-gray-400">아직 없음</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
+                        )}
 
-                          <div className="flex flex-col items-end gap-2 ml-4">
-                            {/* 자동 팀편성 버튼 (참석자가 있을 때만 표시) */}
-                            {match.voters && match.voters.filter(v => v.vote === 'attend').length >= 2 && (
+                        {/* 관리 버튼들 - 별도 영역 */}
+                        <div className="pt-3 border-t border-gray-100">
+                          <div className="flex items-center justify-between gap-2">
+                            {/* 자동 팀편성 버튼 */}
+                            {match.voters && match.voters.filter(v => v.vote === 'attend').length >= 2 ? (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleTeamGeneration(match)}
-                                className="text-xs px-2 py-1 h-7 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                                className="flex-1 text-sm py-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                               >
-                                <Users className="h-3 w-3 mr-1" />
-                                팀편성
+                                <Users className="h-4 w-4 mr-2" />
+                                자동 팀편성
                               </Button>
+                            ) : (
+                              <div className="flex-1"></div>
                             )}
                             
+                            {/* 수정/삭제 버튼 */}
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
@@ -916,7 +924,6 @@ export default function AdminPage() {
                                 <span className="sr-only">삭제</span>
                               </Button>
                             </div>
-
                           </div>
                         </div>
                       </div>
