@@ -402,7 +402,6 @@ export default function AdminPage() {
       team.members.forEach(member => {
         result += `  • ${member.name}\n`
       })
-      result += `\n`
     })
 
     return result
