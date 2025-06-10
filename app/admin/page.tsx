@@ -429,6 +429,26 @@ export default function AdminPage() {
     alert("팀편성 결과가 클립보드에 복사되었습니다!")
   }
 
+  const shareToKakao = () => {
+    if (generatedTeams) {
+      // 카카오톡 공유를 위한 URL 스키마 사용
+      const text = encodeURIComponent(generatedTeams)
+      const kakaoUrl = `kakaotalk://send?text=${text}`
+      
+      // 모바일에서 카카오톡 앱으로 직접 공유
+      if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        window.location.href = kakaoUrl
+      } else {
+        // 데스크톱에서는 웹 카카오톡 또는 클립보드 복사 후 안내
+        navigator.clipboard.writeText(generatedTeams).then(() => {
+          alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
+        }).catch(() => {
+          alert("카카오톡 공유는 모바일에서만 지원됩니다.\n복사하기 버튼을 사용해주세요.")
+        })
+      }
+    }
+  }
+
   const ongoingMatches = matches.filter(match => !isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
   const closedMatches = matches.filter(match => isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
 
@@ -1115,9 +1135,14 @@ export default function AdminPage() {
                     <div className="mt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900">팀편성 결과</h3>
-                        <Button size="sm" variant="outline" onClick={copyToClipboard}>
-                          복사
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={copyToClipboard}>
+                            복사하기
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={shareToKakao} className="bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100">
+                            카톡 공유
+                          </Button>
+                        </div>
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg border">
                         <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800">

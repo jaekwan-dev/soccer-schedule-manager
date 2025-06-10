@@ -202,8 +202,8 @@ export default function Home() {
             <Image 
               src="/red_logo.jpg" 
               alt="뻥랩 로고" 
-              width={300} 
-              height={300} 
+              width={500} 
+              height={500} 
               className="rounded-full"
             />
           </div>
