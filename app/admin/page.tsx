@@ -12,6 +12,8 @@ interface Match {
   time: string;
   venue: string;
   voteDeadline: string;
+  voteDeadlineTime?: string;
+  maxAttendees?: number;
   attendanceVotes: {
     attend: number;
     absent: number;
@@ -22,30 +24,83 @@ interface Match {
     votedAt: string;
   }>;
 }
+
+interface Member {
+  id: string;
+  name: string;
+  level: number;
+  createdAt: string;
+  updatedAt: string;
+}
 import Link from "next/link"
-import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2 } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
   const [matches, setMatches] = useState<Match[]>([])
+  const [members, setMembers] = useState<Member[]>([])
   const [isEditing, setIsEditing] = useState(false)
   const [editingMatch, setEditingMatch] = useState<Match | null>(null)
+  const [editingMember, setEditingMember] = useState<Member | null>(null)
+  const [activeTab, setActiveTab] = useState<'ongoing' | 'closed'>('ongoing')
+  const [mainTab, setMainTab] = useState<'matches' | 'members'>('matches')
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [showTeamModal, setShowTeamModal] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
+  const [teamCount, setTeamCount] = useState<number>(2)
+  const [generatedTeams, setGeneratedTeams] = useState<string>("")
   const [formData, setFormData] = useState({
     date: "",
     time: "",
     venue: "",
     voteDeadline: "",
+    voteDeadlineTime: "23:59",
+    maxAttendees: 20 as number | string,
     attendVotes: 0,
     absentVotes: 0,
   })
 
+  const [memberFormData, setMemberFormData] = useState({
+    name: "",
+    level: 1,
+  })
+
   useEffect(() => {
+    // URL 파라미터 확인
+    const urlParams = new URLSearchParams(window.location.search)
+    const tab = urlParams.get('tab')
+    const auth = urlParams.get('auth')
+    
+    if (auth === 'true') {
+      setIsAuthenticated(true)
+    }
+    
+    if (tab === 'members') {
+      setMainTab('members')
+    }
+    
     if (isAuthenticated) {
       loadMatches()
+      loadMembers()
     }
   }, [isAuthenticated])
+
+  useEffect(() => {
+    // URL 파라미터가 변경될 때마다 체크
+    const urlParams = new URLSearchParams(window.location.search)
+    const tab = urlParams.get('tab')
+    const auth = urlParams.get('auth')
+    
+    if (auth === 'true' && !isAuthenticated) {
+      setIsAuthenticated(true)
+    }
+    
+    if (tab === 'members') {
+      setMainTab('members')
+    }
+  }, [])
 
   const loadMatches = async () => {
     try {
@@ -58,6 +113,22 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('경기 일정 로드 오류:', error)
+    }
+  }
+
+  const loadMembers = async () => {
+    try {
+      const response = await fetch('/api/members')
+      if (response.ok) {
+        const data = await response.json()
+        // 한글 이름순으로 정렬 (API에서 이미 정렬되지만 추가 보장)
+        const sortedData = data.sort((a: Member, b: Member) => a.name.localeCompare(b.name, 'ko-KR'))
+        setMembers(sortedData)
+      } else {
+        console.error('팀원을 불러오는데 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('팀원 로드 오류:', error)
     }
   }
 
@@ -79,6 +150,8 @@ export default function AdminPage() {
       time: formData.time,
       venue: formData.venue,
       voteDeadline: formData.voteDeadline,
+      voteDeadlineTime: formData.voteDeadlineTime,
+      maxAttendees: typeof formData.maxAttendees === 'string' ? 20 : formData.maxAttendees,
     }
 
     try {
@@ -105,7 +178,11 @@ export default function AdminPage() {
 
       if (response.ok) {
         await loadMatches() // 목록 새로고침
+        const message = editingMatch ? '경기 일정이 수정되었습니다.' : '경기 일정이 등록되었습니다.'
+        setSuccessMessage(message)
         resetForm()
+        // 3초 후 메시지 자동 제거
+        setTimeout(() => setSuccessMessage(null), 3000)
       } else {
         const error = await response.json()
         alert(error.error || '경기 일정 처리 중 오류가 발생했습니다.')
@@ -123,6 +200,8 @@ export default function AdminPage() {
       time: match.time,
       venue: match.venue,
       voteDeadline: match.voteDeadline,
+      voteDeadlineTime: match.voteDeadlineTime || "23:59",
+      maxAttendees: match.maxAttendees || 20,
       attendVotes: match.attendanceVotes.attend,
       absentVotes: match.attendanceVotes.absent,
     })
@@ -138,6 +217,9 @@ export default function AdminPage() {
 
         if (response.ok) {
           await loadMatches() // 목록 새로고침
+          setSuccessMessage('경기 일정이 삭제되었습니다.')
+          // 3초 후 메시지 자동 제거
+          setTimeout(() => setSuccessMessage(null), 3000)
         } else {
           const error = await response.json()
           alert(error.error || '경기 일정 삭제 중 오류가 발생했습니다.')
@@ -155,11 +237,96 @@ export default function AdminPage() {
       time: "",
       venue: "",
       voteDeadline: "",
+      voteDeadlineTime: "23:59",
+      maxAttendees: 20 as number | string,
       attendVotes: 0,
       absentVotes: 0,
     })
     setEditingMatch(null)
     setIsEditing(false)
+  }
+
+  const handleMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const memberData = {
+      id: editingMember?.id || Date.now().toString(),
+      name: memberFormData.name,
+      level: memberFormData.level,
+    }
+
+    try {
+      let response
+      if (editingMember) {
+        response = await fetch('/api/members', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(memberData),
+        })
+      } else {
+        response = await fetch('/api/members', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(memberData),
+        })
+      }
+
+      if (response.ok) {
+        await loadMembers()
+        const message = editingMember ? '팀원이 수정되었습니다.' : '팀원이 등록되었습니다.'
+        setSuccessMessage(message)
+        resetMemberForm()
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        const error = await response.json()
+        alert(error.error || '팀원 처리 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('팀원 처리 오류:', error)
+      alert('팀원 처리 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleMemberEdit = (member: Member) => {
+    setEditingMember(member)
+    setMemberFormData({
+      name: member.name,
+      level: member.level,
+    })
+  }
+
+  const handleMemberDelete = async (id: string) => {
+    if (confirm("정말 삭제하시겠습니까?")) {
+      try {
+        const response = await fetch(`/api/members?id=${id}`, {
+          method: 'DELETE',
+        })
+
+        if (response.ok) {
+          await loadMembers()
+          setSuccessMessage('팀원이 삭제되었습니다.')
+          setTimeout(() => setSuccessMessage(null), 3000)
+        } else {
+          const error = await response.json()
+          alert(error.error || '팀원 삭제 중 오류가 발생했습니다.')
+        }
+      } catch (error) {
+        console.error('팀원 삭제 오류:', error)
+        alert('팀원 삭제 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+  const resetMemberForm = () => {
+    setMemberFormData({
+      name: "",
+      level: 1,
+    })
+    setEditingMember(null)
   }
 
   const formatDate = (dateString: string) => {
@@ -176,6 +343,94 @@ export default function AdminPage() {
       fullDate: `${month}월 ${day}일 (${weekday})`,
     }
   }
+
+  const isVoteDeadlinePassed = (deadline: string, deadlineTime?: string) => {
+    const now = new Date()
+    const deadlineDateTime = new Date(`${deadline}T${deadlineTime || '23:59'}:00`)
+    return now > deadlineDateTime
+  }
+
+  // 자동 팀편성 함수
+  const generateTeams = (match: Match, numTeams: number) => {
+    const attendees = match.voters?.filter(voter => voter.vote === 'attend') || []
+    
+    if (attendees.length === 0) {
+      return "참석자가 없습니다."
+    }
+
+    if (numTeams < 2 || numTeams > attendees.length) {
+      return "팀 수가 올바르지 않습니다."
+    }
+
+    // 팀원들의 레벨 정보를 가져오기
+    const attendeesWithLevel = attendees.map(attendee => {
+      const member = members.find(m => m.name === attendee.name)
+      return {
+        name: attendee.name,
+        level: member?.level || 3 // 기본 레벨 3
+      }
+    })
+
+    // 레벨별로 정렬 (높은 레벨부터)
+    attendeesWithLevel.sort((a, b) => b.level - a.level)
+
+    // 팀 초기화
+    const teams: Array<{members: Array<{name: string, level: number}>, totalLevel: number}> = []
+    for (let i = 0; i < numTeams; i++) {
+      teams.push({ members: [], totalLevel: 0 })
+    }
+
+    // 레벨이 높은 선수부터 가장 약한 팀에 배정
+    attendeesWithLevel.forEach(player => {
+      // 현재 가장 약한 팀 찾기
+      const weakestTeam = teams.reduce((min, team, index) => 
+        team.totalLevel < teams[min].totalLevel ? index : min, 0
+      )
+      
+      teams[weakestTeam].members.push(player)
+      teams[weakestTeam].totalLevel += player.level
+    })
+
+    // 결과 텍스트 생성
+    let result = `🏆 자동 팀편성 결과 (${numTeams}팀)\n`
+    result += `📅 경기일: ${formatDate(match.date).fullDate} ${match.time}\n`
+    result += `📍 장소: ${match.venue}\n`
+    result += `👥 총 참석자: ${attendees.length}명\n\n`
+
+    teams.forEach((team, index) => {
+      result += `⚽ ${index + 1}팀 (평균 레벨: ${(team.totalLevel / team.members.length).toFixed(1)})\n`
+      team.members.forEach(member => {
+        result += `  • ${member.name} (레벨 ${member.level})\n`
+      })
+      result += `  총 레벨: ${team.totalLevel}\n\n`
+    })
+
+    result += `💡 팀편성 기준: 레벨 가중치를 고려하여 각 팀의 전력을 균등하게 배분했습니다.`
+
+    return result
+  }
+
+  const handleTeamGeneration = (match: Match) => {
+    setSelectedMatch(match)
+    setShowTeamModal(true)
+    setTeamCount(2)
+    setGeneratedTeams("")
+  }
+
+  const handleGenerateTeams = () => {
+    if (selectedMatch) {
+      const result = generateTeams(selectedMatch, teamCount)
+      setGeneratedTeams(result)
+    }
+  }
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedTeams)
+    alert("팀편성 결과가 클립보드에 복사되었습니다!")
+  }
+
+  const ongoingMatches = matches.filter(match => !isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
+  const closedMatches = matches.filter(match => isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
 
   // 로그인 화면
   if (!isAuthenticated) {
@@ -251,9 +506,42 @@ export default function AdminPage() {
       </div>
 
       <div className="px-3 py-4">
-        <div className="grid gap-4 lg:grid-cols-2">
-          {/* 경기 등록/수정 폼 */}
-          <Card className="border-0 shadow-sm">
+        {/* 성공 메시지 */}
+        {successMessage && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="font-medium">{successMessage}</span>
+          </div>
+        )}
+        
+        {/* 메인 탭 네비게이션 */}
+        <div className="flex gap-1 mb-4">
+          <button
+            onClick={() => setMainTab('matches')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              mainTab === 'matches'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            경기 관리
+          </button>
+          <button
+            onClick={() => setMainTab('members')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              mainTab === 'members'
+                ? 'bg-green-100 text-green-700 border border-green-200'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            팀원 관리
+          </button>
+        </div>
+        
+        {mainTab === 'matches' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* 경기 등록/수정 폼 */}
+            <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 {isEditing ? (
@@ -329,34 +617,105 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label htmlFor="venue" className="flex items-center gap-1 text-sm">
-                    <MapPin className="h-3 w-3" />
-                    경기장
-                  </Label>
-                  <Input
-                    id="venue"
-                    value={formData.venue}
-                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                    placeholder="경기장 이름"
-                    required
-                    className="text-sm"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="venue" className="flex items-center gap-1 text-sm">
+                      <MapPin className="h-3 w-3" />
+                      경기장
+                    </Label>
+                    <Input
+                      id="venue"
+                      value={formData.venue}
+                      onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                      placeholder="경기장 이름"
+                      required
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="maxAttendees" className="flex items-center gap-1 text-sm">
+                      <Users className="h-3 w-3" />
+                      최대인원
+                    </Label>
+                    <Input
+                      id="maxAttendees"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={formData.maxAttendees}
+                                              onChange={(e) => {
+                          const value = e.target.value
+                          if (value === '') {
+                            setFormData({ ...formData, maxAttendees: '' })
+                          } else {
+                            const numValue = parseInt(value)
+                            if (!isNaN(numValue) && numValue >= 1 && numValue <= 50) {
+                              setFormData({ ...formData, maxAttendees: numValue })
+                            }
+                          }
+                        }}
+                      placeholder="20"
+                      required
+                      className="text-sm"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label htmlFor="voteDeadline" className="flex items-center gap-1 text-sm">
-                    <Calendar className="h-3 w-3" />
-                    투표 마감일
-                  </Label>
-                  <Input
-                    id="voteDeadline"
-                    type="date"
-                    value={formData.voteDeadline}
-                    onChange={(e) => setFormData({ ...formData, voteDeadline: e.target.value })}
-                    required
-                    className="text-sm"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="voteDeadline" className="flex items-center gap-1 text-sm">
+                      <Calendar className="h-3 w-3" />
+                      투표 마감일
+                    </Label>
+                    <Input
+                      id="voteDeadline"
+                      type="date"
+                      value={formData.voteDeadline}
+                      onChange={(e) => setFormData({ ...formData, voteDeadline: e.target.value })}
+                      required
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="flex items-center gap-1 text-sm">
+                      <Clock className="h-3 w-3" />
+                      마감 시간
+                    </Label>
+                    <div className="flex gap-2">
+                      <select
+                        value={formData.voteDeadlineTime.split(':')[0] || '23'}
+                        onChange={(e) => {
+                          const hour = e.target.value
+                          const minute = formData.voteDeadlineTime.split(':')[1] || '59'
+                          setFormData({ ...formData, voteDeadlineTime: `${hour}:${minute}` })
+                        }}
+                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                        required
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i.toString().padStart(2, '0')}>
+                            {i.toString().padStart(2, '0')}시
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={formData.voteDeadlineTime.split(':')[1] || '59'}
+                        onChange={(e) => {
+                          const hour = formData.voteDeadlineTime.split(':')[0] || '23'
+                          const minute = e.target.value
+                          setFormData({ ...formData, voteDeadlineTime: `${hour}:${minute}` })
+                        }}
+                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                        required
+                      >
+                        {['00', '15', '30', '45', '59'].map((minute) => (
+                          <option key={minute} value={minute}>
+                            {minute}분
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -380,30 +739,68 @@ export default function AdminPage() {
                 <Calendar className="h-5 w-5" />
                 등록된 경기 목록
               </CardTitle>
+              {/* 탭 메뉴 */}
+              <div className="flex gap-1 mt-4">
+                <button
+                  onClick={() => setActiveTab('ongoing')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'ongoing'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  투표 진행중 ({ongoingMatches.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('closed')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'closed'
+                      ? 'bg-red-100 text-red-700 border border-red-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  투표 마감 ({closedMatches.length})
+                </button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                {matches.length === 0 ? (
+              <div className="space-y-4">
+                {(activeTab === 'ongoing' ? ongoingMatches : closedMatches).length === 0 ? (
                   <div className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
                     <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                    <p>등록된 경기가 없습니다.</p>
+                    <p>{activeTab === 'ongoing' ? '진행중인 경기가 없습니다.' : '마감된 경기가 없습니다.'}</p>
                     <p className="text-sm text-gray-400 mt-1">새 경기를 등록해보세요!</p>
                   </div>
                 ) : (
-                  matches.map((match) => {
+                  (activeTab === 'ongoing' ? ongoingMatches : closedMatches).map((match) => {
                     const dateInfo = formatDate(match.date)
                     const deadlineInfo = formatDate(match.voteDeadline)
+                    const isPassed = isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime)
 
                     return (
                       <div
                         key={match.id}
-                        className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white"
+                        className={`border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white ${
+                          isPassed ? 'border-red-200 bg-red-50' : 'border-gray-200'
+                        }`}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             {/* 경기 날짜 - 가장 중요한 정보 */}
                             <div className="mb-3">
-                              <div className="text-lg font-bold text-gray-900 mb-1">{dateInfo.fullDate}</div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="text-lg font-bold text-gray-900">{dateInfo.fullDate}</div>
+                                {isPassed && (
+                                  <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">
+                                    투표 마감
+                                  </span>
+                                )}
+                                {!isPassed && (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
+                                    투표 진행중
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-base font-semibold text-blue-600">{match.time}</div>
                             </div>
 
@@ -417,7 +814,7 @@ export default function AdminPage() {
                             <div className="flex items-center gap-4 text-sm mb-2">
                               <div className="flex items-center gap-1">
                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-green-600 font-medium">참석 {match.attendanceVotes.attend}명</span>
+                                <span className="text-green-600 font-medium">참석 {match.attendanceVotes.attend}/{match.maxAttendees || 20}명</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
@@ -425,14 +822,80 @@ export default function AdminPage() {
                               </div>
                             </div>
 
-                            {/* 투표 마감일 */}
+                            {/* 투표 마감일시 */}
                             <div className="flex items-center gap-1 text-xs text-gray-400">
                               <Clock className="h-3 w-3" />
-                              <span>투표 마감: {deadlineInfo.fullDate}</span>
+                              <span>투표 마감: {deadlineInfo.fullDate} {match.voteDeadlineTime || '23:59'}</span>
                             </div>
+
+                            {/* 참석자/불참자 목록 */}
+                            {match.voters && match.voters.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <div className="grid grid-cols-2 gap-4">
+                                  {/* 참석자 */}
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-gray-700">참석자</span>
+                                      <span className="text-xs text-gray-500">
+                                        {match.voters.filter(v => v.vote === 'attend').length}명
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {match.voters
+                                        .filter(voter => voter.vote === 'attend')
+                                        .map((voter, index) => (
+                                          <span key={index} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
+                                            {voter.name}
+                                          </span>
+                                        ))}
+                                      {match.voters.filter(v => v.vote === 'attend').length === 0 && (
+                                        <span className="text-xs text-gray-400">아직 없음</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* 불참자 */}
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-gray-700">불참자</span>
+                                      <span className="text-xs text-gray-500">
+                                        {match.voters.filter(v => v.vote === 'absent').length}명
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {match.voters
+                                        .filter(voter => voter.vote === 'absent')
+                                        .map((voter, index) => (
+                                          <span key={index} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded">
+                                            {voter.name}
+                                          </span>
+                                        ))}
+                                      {match.voters.filter(v => v.vote === 'absent').length === 0 && (
+                                        <span className="text-xs text-gray-400">아직 없음</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex flex-col items-end gap-2 ml-4">
+                            {/* 자동 팀편성 버튼 (참석자가 있을 때만 표시) */}
+                            {match.voters && match.voters.filter(v => v.vote === 'attend').length >= 2 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleTeamGeneration(match)}
+                                className="text-xs px-2 py-1 h-7 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                              >
+                                <Users className="h-3 w-3 mr-1" />
+                                팀편성
+                              </Button>
+                            )}
+                            
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
@@ -463,7 +926,204 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </div>
+        )}
+
+        {mainTab === 'members' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* 팀원 등록/수정 폼 */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  {editingMember ? (
+                    <>
+                      <Edit className="h-4 w-4" />
+                      팀원 수정
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-4 w-4" />
+                      새 팀원 등록
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <form onSubmit={handleMemberSubmit} className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="memberName" className="flex items-center gap-1 text-sm">
+                      <Users className="h-3 w-3" />
+                      이름
+                    </Label>
+                    <Input
+                      id="memberName"
+                      value={memberFormData.name}
+                      onChange={(e) => setMemberFormData({ ...memberFormData, name: e.target.value })}
+                      placeholder="팀원 이름"
+                      required
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="memberLevel" className="flex items-center gap-1 text-sm">
+                      레벨
+                    </Label>
+                    <select
+                      id="memberLevel"
+                      value={memberFormData.level}
+                      onChange={(e) => setMemberFormData({ ...memberFormData, level: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                      required
+                    >
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <option key={level} value={level}>
+                          레벨 {level}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button type="submit" className="flex-1 rounded-full text-sm py-2">
+                      {editingMember ? "수정하기" : "등록하기"}
+                    </Button>
+                    {editingMember && (
+                      <Button type="button" variant="outline" onClick={resetMemberForm} className="rounded-full text-sm py-2">
+                        취소
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* 등록된 팀원 목록 */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  등록된 팀원 목록 ({members.length}명)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {members.length === 0 ? (
+                    <div className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                      <Users className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+                      <p>등록된 팀원이 없습니다.</p>
+                      <p className="text-sm text-gray-400 mt-1">첫 팀원을 등록해보세요!</p>
+                    </div>
+                  ) : (
+                    members.map((member) => (
+                      <div
+                        key={member.id}
+                        className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white border-gray-200"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="text-lg font-bold text-gray-900">{member.name}</div>
+                              <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
+                                레벨 {member.level}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMemberEdit(member)}
+                              className="h-8 w-8 p-0 rounded-full"
+                            >
+                              <Edit className="h-4 w-4" />
+                              <span className="sr-only">수정</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleMemberDelete(member.id)}
+                              className="h-8 w-8 p-0 rounded-full"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">삭제</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 자동 팀편성 모달 */}
+        {showTeamModal && selectedMatch && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader className="space-y-1 pb-4">
+                <CardTitle className="text-xl text-center flex items-center justify-center gap-2">
+                  <Users className="h-5 w-5" />
+                  자동 팀편성
+                </CardTitle>
+                <CardDescription className="text-center">
+                  {formatDate(selectedMatch.date).fullDate} {selectedMatch.time} - {selectedMatch.venue}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600">
+                    참석자 {selectedMatch.voters?.filter(v => v.vote === 'attend').length || 0}명을 레벨 가중치에 따라 공평하게 팀을 나눕니다.
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="teamCount">팀 개수</Label>
+                    <select
+                      id="teamCount"
+                      value={teamCount}
+                      onChange={(e) => setTeamCount(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                    >
+                      {Array.from({ length: Math.min(8, selectedMatch.voters?.filter(v => v.vote === 'attend').length || 2) }, (_, i) => i + 2).map((num) => (
+                        <option key={num} value={num}>
+                          {num}팀
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button onClick={handleGenerateTeams} className="flex-1">
+                      팀편성 생성
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowTeamModal(false)}>
+                      취소
+                    </Button>
+                  </div>
+
+                  {generatedTeams && (
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900">팀편성 결과</h3>
+                        <Button size="sm" variant="outline" onClick={copyToClipboard}>
+                          복사
+                        </Button>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg border">
+                        <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800">
+                          {generatedTeams}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   )

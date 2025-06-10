@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, date, time, venue, voteDeadline } = body;
+    const { id, date, time, venue, voteDeadline, voteDeadlineTime, maxAttendees } = body;
 
     const newMatch: NewMatch = {
       id,
@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
       time,
       venue,
       voteDeadline,
+      voteDeadlineTime: voteDeadlineTime || '23:59',
+      maxAttendees: maxAttendees || 20,
       attendanceVotes: { attend: 0, absent: 0 },
       voters: [],
     };
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, date, time, venue, voteDeadline } = body;
+    const { id, date, time, venue, voteDeadline, voteDeadlineTime, maxAttendees } = body;
 
     const [updatedMatch] = await db
       .update(matches)
@@ -62,6 +64,8 @@ export async function PUT(request: NextRequest) {
         time,
         venue,
         voteDeadline,
+        voteDeadlineTime: voteDeadlineTime || '23:59',
+        maxAttendees: maxAttendees || 20,
         updatedAt: new Date(),
       })
       .where(eq(matches.id, id))

@@ -1,0 +1,97 @@
+{
+  "id": "57ab8f83-ef0d-45a2-ae9a-9cfd2751f74f",
+  "prevId": "9c788bab-802d-45d4-ba1d-b3d3dfa7c0dd",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.matches": {
+      "name": "matches",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "venue": {
+          "name": "venue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vote_deadline": {
+          "name": "vote_deadline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vote_deadline_time": {
+          "name": "vote_deadline_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'23:59'"
+        },
+        "attendance_votes": {
+          "name": "attendance_votes",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"attend\":0,\"absent\":0}'::json"
+        },
+        "voters": {
+          "name": "voters",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::json"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

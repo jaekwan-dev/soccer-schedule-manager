@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ADD COLUMN "vote_deadline_time" text DEFAULT '23:59' NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ADD COLUMN "max_attendees" integer DEFAULT 20 NOT NULL;

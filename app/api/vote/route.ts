@@ -36,11 +36,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '경기를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 투표 마감일 확인
-    const voteDeadline = new Date(currentMatch.voteDeadline);
+    // 투표 마감일시 확인
+    const voteDeadlineTime = currentMatch.voteDeadlineTime || '23:59';
+    const voteDeadlineDateTime = new Date(`${currentMatch.voteDeadline}T${voteDeadlineTime}:00`);
     const now = new Date();
-    if (now > voteDeadline) {
-      return NextResponse.json({ error: '투표 마감일이 지났습니다.' }, { status: 400 });
+    
+    if (now > voteDeadlineDateTime) {
+      return NextResponse.json({ error: '투표 마감시간이 지났습니다.' }, { status: 400 });
+    }
+
+    // 최대인원 체크 (참석 투표인 경우만)
+    if (vote === 'attend') {
+      const existingVoters = currentMatch.voters || [];
+      const currentAttendCount = existingVoters.filter(v => v.vote === 'attend' && v.name !== name).length;
+      const maxAttendees = currentMatch.maxAttendees || 20;
+      
+      if (currentAttendCount >= maxAttendees) {
+        return NextResponse.json({ error: '최대인원이 되어 투표가 마감되었습니다.' }, { status: 400 });
+      }
     }
 
     // 기존 투표자 목록에서 같은 이름의 투표 제거

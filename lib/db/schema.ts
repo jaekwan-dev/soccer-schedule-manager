@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, json } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, json } from 'drizzle-orm/pg-core';
 
 export const matches = pgTable('matches', {
   id: text('id').primaryKey(),
@@ -6,6 +6,8 @@ export const matches = pgTable('matches', {
   time: text('time').notNull(),
   venue: text('venue').notNull(),
   voteDeadline: text('vote_deadline').notNull(),
+  voteDeadlineTime: text('vote_deadline_time').notNull().default('23:59'),
+  maxAttendees: integer('max_attendees').notNull().default(20),
   attendanceVotes: json('attendance_votes').$type<{
     attend: number;
     absent: number;
@@ -19,5 +21,15 @@ export const matches = pgTable('matches', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const members = pgTable('members', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  level: integer('level').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export type Match = typeof matches.$inferSelect;
-export type NewMatch = typeof matches.$inferInsert; 
+export type NewMatch = typeof matches.$inferInsert;
+export type Member = typeof members.$inferSelect;
+export type NewMember = typeof members.$inferInsert; 
