@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, json } from 'drizzle-orm/pg-core';
 
 export const matches = pgTable('matches', {
   id: text('id').primaryKey(),
