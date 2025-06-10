@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, matches, NewMatch } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 
+// OPTIONS: CORS 처리
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
 // GET: 모든 경기 일정 조회
 export async function GET() {
   try {

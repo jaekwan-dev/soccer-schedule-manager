@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, matches } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 
+// OPTIONS: CORS 처리
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
 // POST: 경기 참석 투표
 export async function POST(
   request: NextRequest,
@@ -63,9 +75,13 @@ export async function POST(
       .where(eq(matches.id, id))
       .returning();
 
-    return NextResponse.json(updatedMatch);
+    const response = NextResponse.json(updatedMatch);
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    return response;
   } catch (error) {
     console.error('투표 처리 오류:', error);
-    return NextResponse.json({ error: '투표를 처리할 수 없습니다.' }, { status: 500 });
+    const errorResponse = NextResponse.json({ error: '투표를 처리할 수 없습니다.' }, { status: 500 });
+    errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+    return errorResponse;
   }
 } 
