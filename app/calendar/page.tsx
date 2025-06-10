@@ -91,7 +91,12 @@ export default function CalendarPage() {
   }
 
   const getDayMatches = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0]
+    // 로컬 시간대 기준으로 날짜 문자열 생성
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const dateString = `${year}-${month}-${day}`
+    
     return matches.filter(match => match.date === dateString)
   }
 
@@ -163,7 +168,13 @@ export default function CalendarPage() {
                 const dayMatches = getDayMatches(day)
                 const isCurrentMonth = day.getMonth() === currentMonth
                 const isToday = day.toDateString() === new Date().toDateString()
-                const dateString = day.toISOString().split('T')[0]
+                
+                // 로컬 시간대 기준으로 날짜 문자열 생성
+                const year = day.getFullYear()
+                const month = String(day.getMonth() + 1).padStart(2, '0')
+                const dayNum = String(day.getDate()).padStart(2, '0')
+                const dateString = `${year}-${month}-${dayNum}`
+                
                 const isSelected = selectedDate === dateString
 
                 return (
