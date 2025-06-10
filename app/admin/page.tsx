@@ -398,14 +398,12 @@ export default function AdminPage() {
     result += `👥 총 참석자: ${attendees.length}명\n\n`
 
     teams.forEach((team, index) => {
-      result += `⚽ ${index + 1}팀 (평균 레벨: ${(team.totalLevel / team.members.length).toFixed(1)})\n`
+      result += `⚽ ${index + 1}팀\n`
       team.members.forEach(member => {
-        result += `  • ${member.name} (레벨 ${member.level})\n`
+        result += `  • ${member.name}\n`
       })
-      result += `  총 레벨: ${team.totalLevel}\n\n`
+      result += `\n`
     })
-
-    result += `💡 팀편성 기준: 레벨 가중치를 고려하여 각 팀의 전력을 균등하게 배분했습니다.`
 
     return result
   }
@@ -429,23 +427,53 @@ export default function AdminPage() {
     alert("팀편성 결과가 클립보드에 복사되었습니다!")
   }
 
-  const shareToKakao = () => {
-    if (generatedTeams) {
-      // 카카오톡 공유를 위한 URL 스키마 사용
-      const text = encodeURIComponent(generatedTeams)
-      const kakaoUrl = `kakaotalk://send?text=${text}`
-      
-      // 모바일에서 카카오톡 앱으로 직접 공유
-      if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        window.location.href = kakaoUrl
-      } else {
-        // 데스크톱에서는 웹 카카오톡 또는 클립보드 복사 후 안내
-        navigator.clipboard.writeText(generatedTeams).then(() => {
-          alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
-        }).catch(() => {
-          alert("카카오톡 공유는 모바일에서만 지원됩니다.\n복사하기 버튼을 사용해주세요.")
+  const shareToKakao = async () => {
+    if (!generatedTeams) return
+
+    try {
+      // 1. Web Share API 시도 (모바일 우선)
+      if (navigator.share) {
+        await navigator.share({
+          title: '뻥톡 팀편성 결과',
+          text: generatedTeams
         })
+        return
       }
+
+      // 2. 모바일에서 카카오톡 URL 스키마 시도
+      if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        const text = encodeURIComponent(generatedTeams)
+        const kakaoUrl = `kakaotalk://send?text=${text}`
+        
+        // 새 창에서 카카오톡 URL 열기
+        const popup = window.open(kakaoUrl, '_blank')
+        
+        // 0.5초 후 팝업이 열리지 않았으면 클립보드 복사로 대체
+        setTimeout(() => {
+          if (popup && popup.closed) {
+            navigator.clipboard.writeText(generatedTeams).then(() => {
+              alert("카카오톡 앱을 찾을 수 없어 클립보드에 복사했습니다.\n카카오톡에서 붙여넣기 하세요.")
+            })
+          }
+        }, 500)
+        
+        return
+      }
+
+      // 3. 데스크톱에서는 클립보드 복사
+      await navigator.clipboard.writeText(generatedTeams)
+      alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
+      
+    } catch (error) {
+      console.error('공유 실패:', error)
+      // 모든 방법이 실패하면 텍스트 선택으로 대체
+      const textArea = document.createElement('textarea')
+      textArea.value = generatedTeams
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
     }
   }
 
