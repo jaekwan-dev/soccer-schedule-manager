@@ -124,7 +124,7 @@ export default function CalendarPage() {
               </Button>
             </Link>
             <Image 
-              src="/logo.png" 
+              src="/black_logo.png" 
               alt="뻥랩 로고" 
               width={32} 
               height={32} 

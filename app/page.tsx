@@ -38,6 +38,7 @@ export default function Home() {
   const [matches, setMatches] = useState<Match[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showInitialLoading, setShowInitialLoading] = useState(true)
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null)
   const [voterName, setVoterName] = useState("")
   const [selectedVote, setSelectedVote] = useState<'attend' | 'absent' | null>(null)
@@ -45,6 +46,11 @@ export default function Home() {
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
 
   useEffect(() => {
+    // 초기 로딩 화면을 2초간 표시
+    const initialLoadingTimer = setTimeout(() => {
+      setShowInitialLoading(false)
+    }, 2000)
+
     // 데이터베이스에서 경기 일정과 팀원 로드
     const fetchData = async () => {
       try {
@@ -82,11 +88,18 @@ export default function Home() {
       } catch (error) {
         console.error('데이터 로드 오류:', error)
       } finally {
-        setIsLoading(false)
+        // 초기 로딩이 끝난 후에만 데이터 로딩 완료
+        setTimeout(() => {
+          setIsLoading(false)
+        }, 500)
       }
     }
 
     fetchData()
+
+    return () => {
+      clearTimeout(initialLoadingTimer)
+    }
   }, [])
 
   const formatDate = (dateString: string) => {
@@ -180,20 +193,32 @@ export default function Home() {
     }
   }
 
+  // 초기 로딩 화면
+  if (showInitialLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
+        <div className="flex flex-col items-center">
+          <div className="animate-pulse">
+            <Image 
+              src="/red_logo.jpg" 
+              alt="뻥랩 로고" 
+              width={300} 
+              height={300} 
+              className="rounded-full"
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="bg-white border-b border-gray-100 px-5 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image 
-              src="/logo.png" 
-              alt="뻥랩 로고" 
-              width={32} 
-              height={32} 
-              className="rounded-full"
-            />
-            <h1 className="text-xl font-bold text-gray-900">뻥랩</h1>
+            <h1 className="text-xl font-bold text-gray-900">뻥톡</h1>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin">

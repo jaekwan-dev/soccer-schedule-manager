@@ -66,7 +66,7 @@ export default function MembersPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image 
-              src="/logo.png" 
+              src="/black_logo.png" 
               alt="뻥랩 로고" 
               width={32} 
               height={32} 
