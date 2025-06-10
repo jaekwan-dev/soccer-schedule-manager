@@ -6,7 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { Match } from "@/types/match"
+interface Match {
+  id: string;
+  date: string;
+  time: string;
+  venue: string;
+  voteDeadline: string;
+  attendanceVotes: {
+    attend: number;
+    absent: number;
+  };
+  voters: Array<{
+    name: string;
+    vote: 'attend' | 'absent';
+    votedAt: string;
+  }>;
+}
 import Link from "next/link"
 import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
@@ -32,16 +47,18 @@ export default function AdminPage() {
     }
   }, [isAuthenticated])
 
-  const loadMatches = () => {
-    const savedMatches = localStorage.getItem("soccer-matches")
-    if (savedMatches) {
-      setMatches(JSON.parse(savedMatches))
+  const loadMatches = async () => {
+    try {
+      const response = await fetch('/api/matches')
+      if (response.ok) {
+        const data = await response.json()
+        setMatches(data)
+      } else {
+        console.error('경기 일정을 불러오는데 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('경기 일정 로드 오류:', error)
     }
-  }
-
-  const saveMatches = (updatedMatches: Match[]) => {
-    localStorage.setItem("soccer-matches", JSON.stringify(updatedMatches))
-    setMatches(updatedMatches)
   }
 
   const handleLogin = () => {
@@ -53,31 +70,50 @@ export default function AdminPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-          const newMatch: Match = {
-        id: editingMatch?.id || Date.now().toString(),
-        date: formData.date,
-        time: formData.time,
-        venue: formData.venue,
-        voteDeadline: formData.voteDeadline,
-        attendanceVotes: {
-          attend: formData.attendVotes,
-          absent: formData.absentVotes,
-        },
-        voters: editingMatch?.voters || [],
-      }
-
-    let updatedMatches: Match[]
-    if (editingMatch) {
-      updatedMatches = matches.map((match) => (match.id === editingMatch.id ? newMatch : match))
-    } else {
-      updatedMatches = [...matches, newMatch]
+    const matchData = {
+      id: editingMatch?.id || Date.now().toString(),
+      date: formData.date,
+      time: formData.time,
+      venue: formData.venue,
+      voteDeadline: formData.voteDeadline,
     }
 
-    saveMatches(updatedMatches)
-    resetForm()
+    try {
+      let response
+      if (editingMatch) {
+        // 수정
+        response = await fetch('/api/matches', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(matchData),
+        })
+      } else {
+        // 새로 생성
+        response = await fetch('/api/matches', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(matchData),
+        })
+      }
+
+      if (response.ok) {
+        await loadMatches() // 목록 새로고침
+        resetForm()
+      } else {
+        const error = await response.json()
+        alert(error.error || '경기 일정 처리 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('경기 일정 처리 오류:', error)
+      alert('경기 일정 처리 중 오류가 발생했습니다.')
+    }
   }
 
   const handleEdit = (match: Match) => {
@@ -93,10 +129,23 @@ export default function AdminPage() {
     setIsEditing(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("정말 삭제하시겠습니까?")) {
-      const updatedMatches = matches.filter((match) => match.id !== id)
-      saveMatches(updatedMatches)
+      try {
+        const response = await fetch(`/api/matches?id=${id}`, {
+          method: 'DELETE',
+        })
+
+        if (response.ok) {
+          await loadMatches() // 목록 새로고침
+        } else {
+          const error = await response.json()
+          alert(error.error || '경기 일정 삭제 중 오류가 발생했습니다.')
+        }
+      } catch (error) {
+        console.error('경기 일정 삭제 오류:', error)
+        alert('경기 일정 삭제 중 오류가 발생했습니다.')
+      }
     }
   }
 

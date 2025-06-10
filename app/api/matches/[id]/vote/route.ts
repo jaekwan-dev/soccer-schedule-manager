@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db, matches } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+
+// POST: 경기 참석 투표
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params;
+    const body = await request.json();
+    const { name, vote } = body;
+
+    if (!name || !vote || !['attend', 'absent'].includes(vote)) {
+      return NextResponse.json({ error: '올바른 투표 정보가 필요합니다.' }, { status: 400 });
+    }
+
+    // 현재 경기 정보 조회
+    const [currentMatch] = await db
+      .select()
+      .from(matches)
+      .where(eq(matches.id, id));
+
+    if (!currentMatch) {
+      return NextResponse.json({ error: '경기를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 투표 마감일 확인
+    const voteDeadline = new Date(currentMatch.voteDeadline);
+    const now = new Date();
+    if (now > voteDeadline) {
+      return NextResponse.json({ error: '투표 마감일이 지났습니다.' }, { status: 400 });
+    }
+
+    // 기존 투표자 목록에서 같은 이름의 투표 제거
+    const existingVoters = currentMatch.voters || [];
+    const filteredVoters = existingVoters.filter(voter => voter.name !== name);
+
+    // 새 투표 추가
+    const newVoter = {
+      name,
+      vote: vote as 'attend' | 'absent',
+      votedAt: new Date().toISOString(),
+    };
+    const updatedVoters = [...filteredVoters, newVoter];
+
+    // 투표 집계 업데이트
+    const attendCount = updatedVoters.filter(v => v.vote === 'attend').length;
+    const absentCount = updatedVoters.filter(v => v.vote === 'absent').length;
+
+    // 데이터베이스 업데이트
+    const [updatedMatch] = await db
+      .update(matches)
+      .set({
+        voters: updatedVoters,
+        attendanceVotes: {
+          attend: attendCount,
+          absent: absentCount,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(matches.id, id))
+      .returning();
+
+    return NextResponse.json(updatedMatch);
+  } catch (error) {
+    console.error('투표 처리 오류:', error);
+    return NextResponse.json({ error: '투표를 처리할 수 없습니다.' }, { status: 500 });
+  }
+} 

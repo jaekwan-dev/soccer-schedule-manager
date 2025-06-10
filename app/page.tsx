@@ -5,45 +5,26 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { Match } from "@/types/match"
 import Link from "next/link"
 import { MapPin, Users, Clock, Calendar, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import Image from 'next/image'
 
-// 샘플 데이터
-const sampleMatches: Match[] = [
-  {
-    id: "1",
-    date: "2025-06-15",
-    time: "14:00",
-    venue: "안양 수도군단시설",
-    voteDeadline: "2025-06-13",
-    attendanceVotes: {
-      attend: 2,
-      absent: 1,
-    },
-    voters: [
-      { name: "김철수", vote: "attend", votedAt: "2025-06-10T10:00:00Z" },
-      { name: "이영희", vote: "attend", votedAt: "2025-06-10T11:00:00Z" },
-      { name: "박민수", vote: "absent", votedAt: "2025-06-10T12:00:00Z" },
-    ],
-  },
-  {
-    id: "2",
-    date: "2025-06-22",
-    time: "16:00",
-    venue: "안산 수암꿈나무체육공원",
-    voteDeadline: "2025-06-20",
-    attendanceVotes: {
-      attend: 2,
-      absent: 0,
-    },
-    voters: [
-      { name: "최지훈", vote: "attend", votedAt: "2025-06-18T09:00:00Z" },
-      { name: "정수연", vote: "attend", votedAt: "2025-06-18T10:00:00Z" },
-    ],
-  }
-]
+interface Match {
+  id: string;
+  date: string;
+  time: string;
+  venue: string;
+  voteDeadline: string;
+  attendanceVotes: {
+    attend: number;
+    absent: number;
+  };
+  voters: Array<{
+    name: string;
+    vote: 'attend' | 'absent';
+    votedAt: string;
+  }>;
+}
 
 export default function Home() {
   const [matches, setMatches] = useState<Match[]>([])
@@ -52,22 +33,22 @@ export default function Home() {
   const [selectedVote, setSelectedVote] = useState<'attend' | 'absent' | null>(null)
 
   useEffect(() => {
-    // localStorage에서 데이터 로드, 없으면 샘플 데이터 사용
-    const savedMatches = localStorage.getItem("soccer-matches")
-    if (savedMatches) {
-      const parsedMatches = JSON.parse(savedMatches)
-      // 기존 데이터에 voters 속성이 없는 경우 추가
-      const migratedMatches = parsedMatches.map((match: Match) => ({
-        ...match,
-        voters: match.voters || []
-      }))
-      setMatches(migratedMatches)
-      // 마이그레이션된 데이터를 다시 저장
-      localStorage.setItem("soccer-matches", JSON.stringify(migratedMatches))
-    } else {
-      setMatches(sampleMatches)
-      localStorage.setItem("soccer-matches", JSON.stringify(sampleMatches))
+    // 데이터베이스에서 경기 일정 로드
+    const fetchMatches = async () => {
+      try {
+        const response = await fetch('/api/matches')
+        if (response.ok) {
+          const data = await response.json()
+          setMatches(data)
+        } else {
+          console.error('경기 일정을 불러오는데 실패했습니다.')
+        }
+      } catch (error) {
+        console.error('경기 일정 로드 오류:', error)
+      }
     }
+
+    fetchMatches()
   }, [])
 
   const formatDate = (dateString: string) => {
@@ -105,68 +86,39 @@ export default function Home() {
     }
   }
 
-  const handleVoteSubmit = (matchId: string) => {
+  const handleVoteSubmit = async (matchId: string) => {
     if (!voterName.trim() || !selectedVote) return
 
-    const newMatches = matches.map(match => {
-      if (match.id === matchId) {
-        // 기존 투표자인지 확인
-        const voters = match.voters || []
-        const existingVoterIndex = voters.findIndex(voter => voter.name === voterName.trim())
-        const updatedVoters = [...voters]
-        const updatedAttendanceVotes = { ...match.attendanceVotes }
+    try {
+      const response = await fetch(`/api/matches/${matchId}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: voterName.trim(),
+          vote: selectedVote,
+        }),
+      })
 
-        if (existingVoterIndex !== -1) {
-          // 기존 투표자의 투표 변경
-          const oldVote = updatedVoters[existingVoterIndex].vote
-          updatedVoters[existingVoterIndex] = {
-            name: voterName.trim(),
-            vote: selectedVote,
-            votedAt: new Date().toISOString()
-          }
-
-          // 기존 투표 수 차감
-          if (oldVote === 'attend') {
-            updatedAttendanceVotes.attend -= 1
-          } else {
-            updatedAttendanceVotes.absent -= 1
-          }
-
-          // 새 투표 수 추가
-          if (selectedVote === 'attend') {
-            updatedAttendanceVotes.attend += 1
-          } else {
-            updatedAttendanceVotes.absent += 1
-          }
-        } else {
-          // 새 투표자 추가
-          updatedVoters.push({
-            name: voterName.trim(),
-            vote: selectedVote,
-            votedAt: new Date().toISOString()
-          })
-
-          // 투표 수 추가
-          if (selectedVote === 'attend') {
-            updatedAttendanceVotes.attend += 1
-          } else {
-            updatedAttendanceVotes.absent += 1
-          }
-        }
-
-        return {
-          ...match,
-          voters: updatedVoters,
-          attendanceVotes: updatedAttendanceVotes
-        }
+      if (response.ok) {
+        const updatedMatch = await response.json()
+        // 로컬 상태 업데이트
+        setMatches(prevMatches => 
+          prevMatches.map(match => 
+            match.id === matchId ? updatedMatch : match
+          )
+        )
+        setVoterName("")
+        setSelectedVote(null)
+      } else {
+        const error = await response.json()
+        alert(error.error || '투표 처리 중 오류가 발생했습니다.')
       }
-      return match
-    })
-
-    setMatches(newMatches)
-    localStorage.setItem("soccer-matches", JSON.stringify(newMatches))
-    setVoterName("")
-    setSelectedVote(null)
+    } catch (error) {
+      console.error('투표 처리 오류:', error)
+      alert('투표 처리 중 오류가 발생했습니다.')
+    }
   }
 
   return (
