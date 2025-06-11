@@ -384,7 +384,7 @@ export default function AdminPage() {
       const member = members.find(m => m.name === attendee.name)
       return {
         name: attendee.name,
-        level: member?.level || 3 // 기본 레벨 3
+        level: member?.level || 3 // 기본 레벨: 아마추어
       }
     })
 
@@ -1123,11 +1123,11 @@ export default function AdminPage() {
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
                       required
                     >
-                      {[1, 2, 3, 4, 5].map((level) => (
-                        <option key={level} value={level}>
-                          레벨 {level}
-                        </option>
-                      ))}
+                      <option value={1}>루키</option>
+                      <option value={2}>비기너</option>
+                      <option value={3}>아마추어</option>
+                      <option value={4}>세미프로</option>
+                      <option value={5}>프로</option>
                     </select>
                   </div>
 
@@ -1162,44 +1162,55 @@ export default function AdminPage() {
                       <p className="text-sm text-gray-400 mt-1">첫 팀원을 등록해보세요!</p>
                     </div>
                   ) : (
-                    members.map((member) => (
-                      <div
-                        key={member.id}
-                        className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white border-gray-200"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="text-lg font-bold text-gray-900">{member.name}</div>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
-                                레벨 {member.level}
-                              </span>
+                    members.map((member) => {
+                      const getLevelName = (level: number) => {
+                        switch (level) {
+                          case 1: return "루키"
+                          case 2: return "비기너"
+                          case 3: return "아마추어"
+                          case 4: return "세미프로"
+                          case 5: return "프로"
+                          default: return `레벨 ${level}`
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="border rounded-lg p-3 hover:shadow-md transition-shadow bg-white border-gray-200"
+                        >
+                          <div className="flex justify-between items-center">
+                                                         <div className="flex items-center gap-2">
+                               <div className="text-sm font-bold text-gray-900">{member.name}</div>
+                               <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
+                                 {getLevelName(member.level)}
+                               </span>
+                             </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMemberEdit(member)}
+                                className="h-8 w-8 p-0 rounded-full"
+                              >
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">수정</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleMemberDelete(member.id)}
+                                className="h-8 w-8 p-0 rounded-full"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">삭제</span>
+                              </Button>
                             </div>
                           </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMemberEdit(member)}
-                              className="h-8 w-8 p-0 rounded-full"
-                            >
-                              <Edit className="h-4 w-4" />
-                              <span className="sr-only">수정</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleMemberDelete(member.id)}
-                              className="h-8 w-8 p-0 rounded-full"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">삭제</span>
-                            </Button>
-                          </div>
                         </div>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </CardContent>

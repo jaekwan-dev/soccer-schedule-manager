@@ -95,11 +95,11 @@ export default function MembersPage() {
             members.map((member) => (
               <div
                 key={member.id}
-                className="border rounded-lg p-4 bg-white border-gray-200 shadow-sm"
+                className="border rounded-lg p-3 bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <div className="text-lg font-medium text-gray-900">{member.name}</div>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-bold text-gray-900">{member.name}</div>
                   </div>
                 </div>
               </div>
