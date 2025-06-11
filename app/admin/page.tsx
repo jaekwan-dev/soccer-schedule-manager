@@ -1272,7 +1272,7 @@ export default function AdminPage() {
                       <p className="text-sm text-gray-400 mt-1">첫 팀원을 등록해보세요!</p>
                     </div>
                   ) : (
-                    members.map((member) => {
+                    (() => {
                       const getLevelName = (level: number) => {
                         switch (level) {
                           case 1: return "루키"
@@ -1284,43 +1284,91 @@ export default function AdminPage() {
                         }
                       }
 
-                      return (
-                        <div
-                          key={member.id}
-                          className="border rounded-lg p-3 hover:shadow-md transition-shadow bg-white border-gray-200"
-                        >
-                          <div className="flex justify-between items-center">
-                                                         <div className="flex items-center gap-2">
-                               <div className="text-sm font-bold text-gray-900">{member.name}</div>
-                               <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
-                                 {getLevelName(member.level)}
-                               </span>
-                             </div>
+                      const getLevelColor = (level: number) => {
+                        switch (level) {
+                          case 5: return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' }
+                          case 4: return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' }
+                          case 3: return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' }
+                          case 2: return { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' }
+                          case 1: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
+                          default: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
+                        }
+                      }
 
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleMemberEdit(member)}
-                                className="h-8 w-8 p-0 rounded-full"
-                              >
-                                <Edit className="h-4 w-4" />
-                                <span className="sr-only">수정</span>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleMemberDelete(member.id)}
-                                className="h-8 w-8 p-0 rounded-full"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">삭제</span>
-                              </Button>
+                      // 레벨별로 그룹화 (프로 > 세미프로 > 아마추어 > 비기너 > 루키 순)
+                      const groupedMembers = members.reduce((groups, member) => {
+                        const level = member.level
+                        if (!groups[level]) {
+                          groups[level] = []
+                        }
+                        groups[level].push(member)
+                        return groups
+                      }, {} as Record<number, Member[]>)
+
+                      // 레벨 순서대로 정렬 (5 > 4 > 3 > 2 > 1)
+                      const sortedLevels = Object.keys(groupedMembers)
+                        .map(Number)
+                        .sort((a, b) => b - a)
+
+                      return sortedLevels.map(level => {
+                        const levelMembers = groupedMembers[level].sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+                        const colors = getLevelColor(level)
+                        
+                        return (
+                          <div key={level} className="space-y-2">
+                            {/* 레벨 헤더 */}
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${colors.bg} ${colors.border} border`}>
+                              <span className={`text-sm font-semibold ${colors.text}`}>
+                                {getLevelName(level)}
+                              </span>
+                              <span className={`text-xs ${colors.text} opacity-70`}>
+                                ({levelMembers.length}명)
+                              </span>
+                            </div>
+
+                            {/* 해당 레벨의 팀원들 */}
+                            <div className="space-y-2 ml-4">
+                              {levelMembers.map((member) => (
+                                <div
+                                  key={member.id}
+                                  className="border rounded-lg p-3 hover:shadow-md transition-shadow bg-white border-gray-200"
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-sm font-bold text-gray-900">{member.name}</div>
+                                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${colors.bg} ${colors.text} ${colors.border} border`}>
+                                        {getLevelName(member.level)}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleMemberEdit(member)}
+                                        className="h-8 w-8 p-0 rounded-full"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                        <span className="sr-only">수정</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleMemberDelete(member.id)}
+                                        className="h-8 w-8 p-0 rounded-full"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">삭제</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                      )
-                    })
+                        )
+                      })
+                    })()
                   )}
                 </div>
               </CardContent>
