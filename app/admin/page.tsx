@@ -325,6 +325,17 @@ export default function AdminPage() {
       name: member.name,
       level: member.level,
     })
+    
+    // 편집 폼으로 스크롤
+    setTimeout(() => {
+      const memberFormElement = document.querySelector('[data-member-form]')
+      if (memberFormElement) {
+        memberFormElement.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        })
+      }
+    }, 100)
   }
 
   const handleMemberDelete = async (id: string) => {
@@ -1189,7 +1200,7 @@ export default function AdminPage() {
         {mainTab === 'members' && (
           <div className="grid gap-4 lg:grid-cols-2">
             {/* 팀원 등록/수정 폼 */}
-            <Card className="border-0 shadow-sm">
+            <Card className="border-0 shadow-sm" data-member-form>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   {editingMember ? (
