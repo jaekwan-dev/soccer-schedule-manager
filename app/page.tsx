@@ -34,6 +34,14 @@ interface Member {
   level: number;
 }
 
+interface Comment {
+  id: string;
+  matchId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
 export default function Home() {
   const [matches, setMatches] = useState<Match[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -44,6 +52,9 @@ export default function Home() {
   const [selectedVote, setSelectedVote] = useState<'attend' | 'absent' | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
+  const [newComment, setNewComment] = useState("")
+  const [commentAuthor, setCommentAuthor] = useState("")
 
   useEffect(() => {
     // 초기 로딩 화면을 2초간 표시
@@ -135,6 +146,9 @@ export default function Home() {
       setSelectedVote(null)
       setShowSuggestions(false)
       
+      // 댓글 로드
+      loadComments(match.id)
+      
       // 투표창이 열릴 때 해당 카드로 스크롤
       setTimeout(() => {
         const cardElement = document.getElementById(`match-card-${match.id}`)
@@ -205,6 +219,55 @@ export default function Home() {
     } catch (error) {
       console.error('투표 처리 오류:', error)
       alert('투표 처리 중 오류가 발생했습니다.')
+    }
+  }
+
+  const loadComments = async (matchId: string) => {
+    try {
+      const response = await fetch(`/api/comments?matchId=${matchId}`)
+      if (response.ok) {
+        const matchComments = await response.json()
+        setComments(prev => ({
+          ...prev,
+          [matchId]: matchComments
+        }))
+      }
+    } catch (error) {
+      console.error('댓글 로드 오류:', error)
+    }
+  }
+
+  const handleCommentSubmit = async (matchId: string) => {
+    if (!commentAuthor.trim() || !newComment.trim()) return
+
+    try {
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          matchId,
+          authorName: commentAuthor.trim(),
+          content: newComment.trim(),
+        }),
+      })
+
+      if (response.ok) {
+        const createdComment = await response.json()
+        setComments(prev => ({
+          ...prev,
+          [matchId]: [...(prev[matchId] || []), createdComment]
+        }))
+        setNewComment("")
+        setCommentAuthor("")
+      } else {
+        const error = await response.json()
+        alert(error.error || '댓글 작성 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('댓글 작성 오류:', error)
+      alert('댓글 작성 중 오류가 발생했습니다.')
     }
   }
 
@@ -485,6 +548,64 @@ export default function Home() {
                               >
                                 취소
                               </Button>
+                            </div>
+
+                            {/* 댓글 섹션 */}
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              <h4 className="font-medium text-gray-900 mb-3">댓글</h4>
+                              
+                              {/* 기존 댓글 목록 */}
+                              <div className="space-y-2 mb-3">
+                                {comments[match.id]?.length > 0 ? (
+                                  comments[match.id].map((comment) => (
+                                    <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm font-medium text-gray-900">{comment.authorName}</span>
+                                        <span className="text-xs text-gray-500">
+                                          {new Date(comment.createdAt).toLocaleString('ko-KR', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-gray-700">{comment.content}</p>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-gray-400 text-center py-4">
+                                    아직 댓글이 없습니다. 첫 댓글을 남겨보세요!
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* 새 댓글 작성 */}
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder="이름"
+                                    value={commentAuthor}
+                                    onChange={(e) => setCommentAuthor(e.target.value)}
+                                    className="text-sm w-20 flex-shrink-0"
+                                  />
+                                  <Input
+                                    placeholder="댓글을 입력하세요..."
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    onKeyPress={(e) => e.key === "Enter" && handleCommentSubmit(match.id)}
+                                    className="text-sm flex-1"
+                                  />
+                                </div>
+                                <Button
+                                  onClick={() => handleCommentSubmit(match.id)}
+                                  disabled={!commentAuthor.trim() || !newComment.trim()}
+                                  size="sm"
+                                  className="w-full"
+                                >
+                                  댓글 작성
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>

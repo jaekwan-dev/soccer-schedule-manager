@@ -32,6 +32,14 @@ interface Member {
   createdAt: string;
   updatedAt: string;
 }
+
+interface Comment {
+  id: string;
+  matchId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
 import Link from "next/link"
 import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
@@ -53,6 +61,7 @@ export default function AdminPage() {
   const [generatedTeams, setGeneratedTeams] = useState<string>("")
   const [showVenueSuggestions, setShowVenueSuggestions] = useState(false)
   const [venueSuggestions, setVenueSuggestions] = useState<string[]>([])
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [formData, setFormData] = useState({
     date: "",
     time: "",
@@ -519,6 +528,49 @@ export default function AdminPage() {
     } catch (error) {
       console.error('투표 삭제 오류:', error)
       alert('투표 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const loadComments = async (matchId: string) => {
+    try {
+      const response = await fetch(`/api/comments?matchId=${matchId}`)
+      if (response.ok) {
+        const matchComments = await response.json()
+        setComments(prev => ({
+          ...prev,
+          [matchId]: matchComments
+        }))
+      }
+    } catch (error) {
+      console.error('댓글 로드 오류:', error)
+    }
+  }
+
+  const handleDeleteComment = async (commentId: string, matchId: string) => {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/comments?id=${commentId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // 로컬 상태에서 댓글 제거
+        setComments(prev => ({
+          ...prev,
+          [matchId]: prev[matchId]?.filter(comment => comment.id !== commentId) || []
+        }))
+        setSuccessMessage('댓글이 삭제되었습니다.')
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        const error = await response.json()
+        alert(error.error || '댓글 삭제 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('댓글 삭제 오류:', error)
+      alert('댓글 삭제 중 오류가 발생했습니다.')
     }
   }
 

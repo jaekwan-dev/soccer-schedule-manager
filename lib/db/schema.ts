@@ -29,7 +29,17 @@ export const members = pgTable('members', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const comments = pgTable('comments', {
+  id: text('id').primaryKey(),
+  matchId: text('match_id').notNull(),
+  authorName: text('author_name').notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export type Match = typeof matches.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;
 export type Member = typeof members.$inferSelect;
-export type NewMember = typeof members.$inferInsert; 
+export type NewMember = typeof members.$inferInsert;
+export type Comment = typeof comments.$inferSelect;
+export type NewComment = typeof comments.$inferInsert; 
