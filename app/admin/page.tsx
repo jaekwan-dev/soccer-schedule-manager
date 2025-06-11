@@ -33,7 +33,7 @@ interface Member {
   updatedAt: string;
 }
 import Link from "next/link"
-import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users, X } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
 export default function AdminPage() {
@@ -100,7 +100,7 @@ export default function AdminPage() {
     if (tab === 'members') {
       setMainTab('members')
     }
-  }, [])
+  }, [isAuthenticated])
 
   const loadMatches = async () => {
     try {
@@ -473,6 +473,35 @@ export default function AdminPage() {
       document.execCommand('copy')
       document.body.removeChild(textArea)
       alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
+    }
+  }
+
+  const handleDeleteVote = async (matchId: string, voterName: string) => {
+    if (!confirm(`${voterName}님의 투표를 삭제하시겠습니까?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/matches/${matchId}/vote`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ voterName }),
+      })
+
+      if (response.ok) {
+        await loadMatches() // 목록 새로고침
+        setSuccessMessage('투표가 삭제되었습니다.')
+        // 3초 후 메시지 자동 제거
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        const error = await response.json()
+        alert(error.error || '투표 삭제 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('투표 삭제 오류:', error)
+      alert('투표 삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -896,9 +925,16 @@ export default function AdminPage() {
                                   {match.voters
                                     .filter(voter => voter.vote === 'attend')
                                     .map((voter, index) => (
-                                      <span key={index} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
-                                        {voter.name}
-                                      </span>
+                                      <div key={index} className="group relative inline-flex items-center px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors">
+                                        <span>{voter.name}</span>
+                                        <button
+                                          onClick={() => handleDeleteVote(match.id, voter.name)}
+                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 rounded-full p-0.5"
+                                          title="투표 삭제"
+                                        >
+                                          <X className="h-3 w-3 text-red-500" />
+                                        </button>
+                                      </div>
                                     ))}
                                   {match.voters.filter(v => v.vote === 'attend').length === 0 && (
                                     <span className="text-xs text-gray-400">아직 없음</span>
@@ -919,9 +955,16 @@ export default function AdminPage() {
                                   {match.voters
                                     .filter(voter => voter.vote === 'absent')
                                     .map((voter, index) => (
-                                      <span key={index} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded">
-                                        {voter.name}
-                                      </span>
+                                      <div key={index} className="group relative inline-flex items-center px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded hover:bg-red-100 transition-colors">
+                                        <span>{voter.name}</span>
+                                        <button
+                                          onClick={() => handleDeleteVote(match.id, voter.name)}
+                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 rounded-full p-0.5"
+                                          title="투표 삭제"
+                                        >
+                                          <X className="h-3 w-3 text-red-500" />
+                                        </button>
+                                      </div>
                                     ))}
                                   {match.voters.filter(v => v.vote === 'absent').length === 0 && (
                                     <span className="text-xs text-gray-400">아직 없음</span>
