@@ -419,7 +419,7 @@ export default function Home() {
                                       {match.voters
                                         .filter(voter => voter.vote === 'attend')
                                         .map((voter, index) => (
-                                          <span key={index} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
+                                          <span key={index} className="px-1 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
                                             {voter.name}
                                           </span>
                                         ))}
@@ -442,7 +442,7 @@ export default function Home() {
                                       {match.voters
                                         .filter(voter => voter.vote === 'absent')
                                         .map((voter, index) => (
-                                          <span key={index} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded">
+                                          <span key={index} className="px-1 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded">
                                             {voter.name}
                                           </span>
                                         ))}
