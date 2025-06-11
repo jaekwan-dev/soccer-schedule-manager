@@ -33,6 +33,14 @@ interface Member {
   updatedAt: string;
 }
 
+interface Comment {
+  id: string;
+  matchId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
 
 import Link from "next/link"
 import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users } from "lucide-react"
@@ -55,6 +63,7 @@ export default function AdminPage() {
   const [generatedTeams, setGeneratedTeams] = useState<string>("")
   const [showVenueSuggestions, setShowVenueSuggestions] = useState(false)
   const [venueSuggestions, setVenueSuggestions] = useState<string[]>([])
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [formData, setFormData] = useState({
     date: "",
     time: "",
@@ -528,7 +537,48 @@ export default function AdminPage() {
     }
   }
 
+  const loadComments = async (matchId: string) => {
+    try {
+      const response = await fetch(`/api/comments?matchId=${matchId}`)
+      if (response.ok) {
+        const matchComments = await response.json()
+        setComments(prev => ({
+          ...prev,
+          [matchId]: matchComments
+        }))
+      }
+    } catch (error) {
+      console.error('댓글 로드 오류:', error)
+    }
+  }
 
+  const handleDeleteComment = async (commentId: string, matchId: string) => {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/comments?id=${commentId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // 로컬 상태에서 댓글 제거
+        setComments(prev => ({
+          ...prev,
+          [matchId]: prev[matchId]?.filter(comment => comment.id !== commentId) || []
+        }))
+        setSuccessMessage('댓글이 삭제되었습니다.')
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        const error = await response.json()
+        alert(error.error || '댓글 삭제 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('댓글 삭제 오류:', error)
+      alert('댓글 삭제 중 오류가 발생했습니다.')
+    }
+  }
 
   const ongoingMatches = matches.filter(match => !isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
   const closedMatches = matches.filter(match => isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
@@ -1032,6 +1082,58 @@ export default function AdminPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* 댓글 섹션 */}
+                        <div className="pt-3 border-t border-gray-100">
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-sm font-medium text-gray-700">댓글</h4>
+                              <button
+                                onClick={() => loadComments(match.id)}
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                              >
+                                댓글 불러오기
+                              </button>
+                            </div>
+                            
+                            {/* 댓글 목록 */}
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                              {comments[match.id]?.length > 0 ? (
+                                comments[match.id].map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-2">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-medium text-gray-900">{comment.authorName}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-gray-500">
+                                          {new Date(comment.createdAt).toLocaleString('ko-KR', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}
+                                        </span>
+                                        <button
+                                          onClick={() => handleDeleteComment(comment.id, match.id)}
+                                          className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
+                                          title="댓글 삭제"
+                                        >
+                                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-gray-700">{comment.content}</p>
+                                  </div>
+                                ))
+                              ) : (
+                                comments[match.id] !== undefined && (
+                                  <p className="text-xs text-gray-400 text-center py-2">
+                                    댓글이 없습니다.
+                                  </p>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
                         {/* 관리 버튼들 - 별도 영역 */}
                         <div className="pt-3 border-t border-gray-100">
