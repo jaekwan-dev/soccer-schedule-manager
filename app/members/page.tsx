@@ -100,6 +100,12 @@ export default function MembersPage() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="text-sm font-bold text-gray-900">{member.name}</div>
+                    <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 rounded-full">
+                      {member.level === 1 ? '루키' : 
+                       member.level === 2 ? '비기너' : 
+                       member.level === 3 ? '아마추어' : 
+                       member.level === 4 ? '세미프로' : '프로'}
+                    </span>
                   </div>
                 </div>
               </div>
