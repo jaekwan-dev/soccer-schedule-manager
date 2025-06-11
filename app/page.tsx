@@ -338,7 +338,7 @@ export default function Home() {
                               </p>
                             ) : (
                               <p className="text-xs text-gray-500 leading-tight">
-                                * 투표를 변경하려면 다시 이름 쓰고 참석 여부 선택하고 투표하기 누르면 변경됩니다.
+                                * 투표를 변경하려면 다시 이름 쓰고 참석 여부 선택하고 투표하기 누르면 됩니다.
                               </p>
                             )}
                           </div>
