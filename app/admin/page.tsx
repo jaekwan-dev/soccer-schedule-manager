@@ -33,7 +33,7 @@ interface Member {
   updatedAt: string;
 }
 import Link from "next/link"
-import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users, X } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
 export default function AdminPage() {
@@ -51,6 +51,8 @@ export default function AdminPage() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [teamCount, setTeamCount] = useState<number>(2)
   const [generatedTeams, setGeneratedTeams] = useState<string>("")
+  const [showVenueSuggestions, setShowVenueSuggestions] = useState(false)
+  const [venueSuggestions, setVenueSuggestions] = useState<string[]>([])
   const [formData, setFormData] = useState({
     date: "",
     time: "",
@@ -108,6 +110,21 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json()
         setMatches(data)
+        
+        // 경기장 자동완성을 위한 데이터 업데이트
+        const venues = data.map((match: Match) => match.venue).filter(Boolean)
+        const venueCount = venues.reduce((acc: Record<string, number>, venue: string) => {
+          acc[venue] = (acc[venue] || 0) + 1
+          return acc
+        }, {})
+        
+        // 사용 빈도순으로 정렬하여 상위 5개 추출
+        const sortedVenues = Object.entries(venueCount)
+          .sort(([,a], [,b]) => (b as number) - (a as number))
+          .slice(0, 5)
+          .map(([venue]) => venue)
+        
+        setVenueSuggestions(sortedVenues)
       } else {
         console.error('경기 일정을 불러오는데 실패했습니다.')
       }
@@ -694,7 +711,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1 relative">
                     <Label htmlFor="venue" className="flex items-center gap-1 text-sm">
                       <MapPin className="h-3 w-3" />
                       경기장
@@ -702,11 +719,44 @@ export default function AdminPage() {
                     <Input
                       id="venue"
                       value={formData.venue}
-                      onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, venue: e.target.value })
+                        setShowVenueSuggestions(e.target.value.length > 0 && venueSuggestions.length > 0)
+                      }}
+                      onFocus={() => setShowVenueSuggestions(formData.venue.length > 0 && venueSuggestions.length > 0)}
+                      onBlur={() => setTimeout(() => setShowVenueSuggestions(false), 150)}
                       placeholder="경기장 이름"
                       required
                       className="text-sm"
                     />
+                    {/* 자동완성 드롭다운 */}
+                    {showVenueSuggestions && (
+                      <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1">
+                        {venueSuggestions
+                          .filter(venue => venue.toLowerCase().includes(formData.venue.toLowerCase()))
+                          .map((venue, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, venue })
+                                setShowVenueSuggestions(false)
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-3 w-3 text-gray-400" />
+                                {venue}
+                              </div>
+                            </button>
+                          ))}
+                        {venueSuggestions.filter(venue => venue.toLowerCase().includes(formData.venue.toLowerCase())).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-gray-500">
+                            검색 결과가 없습니다
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="maxAttendees" className="flex items-center gap-1 text-sm">
@@ -925,14 +975,14 @@ export default function AdminPage() {
                                   {match.voters
                                     .filter(voter => voter.vote === 'attend')
                                     .map((voter, index) => (
-                                      <div key={index} className="group relative inline-flex items-center px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors">
-                                        <span>{voter.name}</span>
+                                      <div key={index} className="inline-flex items-center px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded transition-colors">
+                                        <span className="mr-2">{voter.name}</span>
                                         <button
                                           onClick={() => handleDeleteVote(match.id, voter.name)}
-                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 rounded-full p-0.5"
+                                          className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
                                           title="투표 삭제"
                                         >
-                                          <X className="h-3 w-3 text-red-500" />
+                                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
                                         </button>
                                       </div>
                                     ))}
@@ -955,14 +1005,14 @@ export default function AdminPage() {
                                   {match.voters
                                     .filter(voter => voter.vote === 'absent')
                                     .map((voter, index) => (
-                                      <div key={index} className="group relative inline-flex items-center px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded hover:bg-red-100 transition-colors">
-                                        <span>{voter.name}</span>
+                                      <div key={index} className="inline-flex items-center px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded transition-colors">
+                                        <span className="mr-2">{voter.name}</span>
                                         <button
                                           onClick={() => handleDeleteVote(match.id, voter.name)}
-                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 rounded-full p-0.5"
+                                          className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
                                           title="투표 삭제"
                                         >
-                                          <X className="h-3 w-3 text-red-500" />
+                                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
                                         </button>
                                       </div>
                                     ))}

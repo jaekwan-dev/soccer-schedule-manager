@@ -180,7 +180,27 @@ export default function CalendarPage() {
                 return (
                   <button
                     key={index}
-                    onClick={() => setSelectedDate(isSelected ? null : dateString)}
+                    onClick={() => {
+                      const newSelectedDate = isSelected ? null : dateString
+                      setSelectedDate(newSelectedDate)
+                      
+                      // 날짜를 선택했고 해당 날짜에 경기가 있을 때 스크롤
+                      if (newSelectedDate && dayMatches.length > 0) {
+                        setTimeout(() => {
+                          const matchListElement = document.getElementById('selected-matches')
+                          if (matchListElement) {
+                            const headerHeight = 60 // 헤더 높이
+                            const elementTop = matchListElement.offsetTop
+                            const scrollPosition = Math.max(0, elementTop - headerHeight - 20) // 20px 여유 공간
+                            
+                            window.scrollTo({
+                              top: scrollPosition,
+                              behavior: 'smooth'
+                            })
+                          }
+                        }, 100) // DOM 업데이트 후 스크롤
+                      }
+                    }}
                     className={`
                       relative p-2 text-sm rounded-lg transition-colors min-h-[60px] flex flex-col items-center justify-start
                       ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-900'}
@@ -215,7 +235,7 @@ export default function CalendarPage() {
 
         {/* 선택된 날짜의 경기 목록 */}
         {selectedDate && selectedMatches.length > 0 && (
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm" id="selected-matches">
             <CardContent className="p-4">
               <h3 className="font-semibold text-gray-900 mb-3">
                 {formatDate(selectedDate).fullDate} 경기 일정

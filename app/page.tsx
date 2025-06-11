@@ -134,6 +134,21 @@ export default function Home() {
       setVoterName("")
       setSelectedVote(null)
       setShowSuggestions(false)
+      
+      // 투표창이 열릴 때 해당 카드로 스크롤
+      setTimeout(() => {
+        const cardElement = document.getElementById(`match-card-${match.id}`)
+        if (cardElement) {
+          const headerHeight = 60 // 헤더 높이
+          const cardTop = cardElement.offsetTop
+          const scrollPosition = Math.max(0, cardTop - headerHeight - 20) // 20px 여유 공간
+          
+          window.scrollTo({
+            top: scrollPosition,
+            behavior: 'smooth'
+          })
+        }
+      }, 100) // DOM 업데이트 후 스크롤
     }
   }
 
@@ -263,7 +278,7 @@ export default function Home() {
               const isMaxReached = match.attendanceVotes.attend >= maxAttendees
 
               return (
-                <div key={match.id}>
+                <div key={match.id} id={`match-card-${match.id}`}>
                   <div
                     className={`border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white cursor-pointer ${
                       isPassed ? 'border-red-200 bg-red-50' : 'border-gray-200'
