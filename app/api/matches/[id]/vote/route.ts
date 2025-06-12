@@ -9,7 +9,7 @@ export async function DELETE(
 ) {
   try {
     const { voterName } = await request.json()
-    const { id } = await params
+    const { id } = params
     
     if (!voterName) {
       return NextResponse.json({ error: '투표자 이름이 필요합니다.' }, { status: 400 })
