@@ -525,6 +525,8 @@ export default function AdminPage() {
     }
 
     try {
+      console.log('투표 삭제 요청 시작:', { matchId, voterName })
+      
       const response = await fetch(`/api/matches/${matchId}/vote`, {
         method: 'DELETE',
         headers: {
@@ -533,18 +535,23 @@ export default function AdminPage() {
         body: JSON.stringify({ voterName }),
       })
 
+      console.log('응답 상태:', response.status, response.statusText)
+
       if (response.ok) {
+        const result = await response.json()
+        console.log('삭제 성공:', result)
         await loadMatches() // 목록 새로고침
         setSuccessMessage('투표가 삭제되었습니다.')
         // 3초 후 메시지 자동 제거
         setTimeout(() => setSuccessMessage(null), 3000)
       } else {
         const error = await response.json()
-        alert(error.error || '투표 삭제 중 오류가 발생했습니다.')
+        console.error('삭제 실패:', error)
+        alert(`투표 삭제 실패: ${error.error || '알 수 없는 오류'}${error.details ? ` (${error.details})` : ''}`)
       }
     } catch (error) {
-      console.error('투표 삭제 오류:', error)
-      alert('투표 삭제 중 오류가 발생했습니다.')
+      console.error('투표 삭제 네트워크 오류:', error)
+      alert(`네트워크 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
   }
 

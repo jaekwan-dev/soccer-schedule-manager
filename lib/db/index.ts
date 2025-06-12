@@ -13,10 +13,16 @@ const getDatabaseUrl = () => {
   }
   
   console.log('DATABASE_URL 로드됨:', url.substring(0, 20) + '...');
+  console.log('환경:', process.env.NODE_ENV || 'development');
+  console.log('Vercel 환경:', process.env.VERCEL ? 'true' : 'false');
+  
   return url;
 };
 
 const sql = neon(getDatabaseUrl());
-export const db = drizzle(sql, { schema });
+export const db = drizzle(sql, { 
+  schema,
+  logger: process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview'
+});
 
 export * from './schema'; 
