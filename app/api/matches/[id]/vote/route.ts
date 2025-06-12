@@ -5,11 +5,11 @@ import { eq } from 'drizzle-orm'
 // 투표 삭제 (관리자용)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { voterName } = await request.json()
-    const { id } = params
+    const { id } = await context.params;
     
     if (!voterName) {
       return NextResponse.json({ error: '투표자 이름이 필요합니다.' }, { status: 400 })
