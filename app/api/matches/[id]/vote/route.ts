@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 // 투표 삭제 (관리자용)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { voterName } = await request.json()
