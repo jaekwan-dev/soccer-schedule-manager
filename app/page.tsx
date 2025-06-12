@@ -416,7 +416,7 @@ export default function Home() {
                               </p>
                             ) : (
                               <p className="text-xs text-gray-500 leading-tight">
-                                * 투표를 변경하려면 다시 투표하면 됩니다.
+                                * 다시 투표하면 투표 변경 가능합니다.
                               </p>
                             )}
                           </div>
