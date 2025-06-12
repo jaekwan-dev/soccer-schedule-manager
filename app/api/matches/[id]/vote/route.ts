@@ -95,11 +95,22 @@ export async function DELETE(
     const updatedMatch = updateResult[0]
     console.log('데이터베이스 업데이트 완료:', { matchId: updatedMatch.id, newVotersCount: updatedMatch.voters?.length || 0 })
 
-    return NextResponse.json({ 
+    const response = NextResponse.json({ 
       message: '투표가 삭제되었습니다.',
       match: updatedMatch,
       deletedVoter: removedVoter
     })
+    
+    // 응답 헤더 명시적 설정
+    response.headers.set('Content-Type', 'application/json')
+    
+    console.log('응답 반환:', { 
+      message: '투표가 삭제되었습니다.',
+      matchId: updatedMatch.id,
+      deletedVoterName: removedVoter.name
+    })
+    
+    return response
   } catch (error) {
     console.error('투표 삭제 오류 상세:', {
       error: error instanceof Error ? error.message : error,

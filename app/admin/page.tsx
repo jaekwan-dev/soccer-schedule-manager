@@ -536,18 +536,55 @@ export default function AdminPage() {
       })
 
       console.log('응답 상태:', response.status, response.statusText)
+      console.log('응답 헤더:', response.headers.get('content-type'))
 
       if (response.ok) {
-        const result = await response.json()
-        console.log('삭제 성공:', result)
-        await loadMatches() // 목록 새로고침
-        setSuccessMessage('투표가 삭제되었습니다.')
-        // 3초 후 메시지 자동 제거
-        setTimeout(() => setSuccessMessage(null), 3000)
+        try {
+          const responseText = await response.text()
+          console.log('응답 텍스트:', responseText)
+          
+          if (responseText) {
+            const result = JSON.parse(responseText)
+            console.log('삭제 성공:', result)
+          } else {
+            console.log('빈 응답이지만 성공')
+          }
+          
+          await loadMatches() // 목록 새로고침
+          setSuccessMessage('투표가 삭제되었습니다.')
+          // 3초 후 메시지 자동 제거
+          setTimeout(() => setSuccessMessage(null), 3000)
+        } catch (parseError) {
+          console.error('JSON 파싱 오류:', parseError)
+          // 파싱 오류가 있어도 성공으로 처리 (서버에서 성공 응답을 보냈으므로)
+          await loadMatches()
+          setSuccessMessage('투표가 삭제되었습니다.')
+          setTimeout(() => setSuccessMessage(null), 3000)
+        }
       } else {
-        const error = await response.json()
-        console.error('삭제 실패:', error)
-        alert(`투표 삭제 실패: ${error.error || '알 수 없는 오류'}${error.details ? ` (${error.details})` : ''}`)
+        try {
+          const responseText = await response.text()
+          console.log('에러 응답 텍스트:', responseText)
+          
+          let error: { error: string; details?: string } = { error: '알 수 없는 오류' }
+          if (responseText) {
+            try {
+              const parsedError = JSON.parse(responseText)
+              error = {
+                error: parsedError.error || '알 수 없는 오류',
+                details: parsedError.details
+              }
+            } catch {
+              error = { error: responseText || '서버 오류' }
+            }
+          }
+          
+          console.error('삭제 실패:', error)
+          alert(`투표 삭제 실패: ${error.error || '알 수 없는 오류'}${error.details ? ` (${error.details})` : ''}`)
+        } catch (textError) {
+          console.error('응답 읽기 오류:', textError)
+          alert('서버 응답을 읽을 수 없습니다.')
+        }
       }
     } catch (error) {
       console.error('투표 삭제 네트워크 오류:', error)
