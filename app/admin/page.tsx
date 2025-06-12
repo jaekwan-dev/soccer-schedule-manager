@@ -527,12 +527,12 @@ export default function AdminPage() {
     try {
       console.log('투표 삭제 요청 시작:', { matchId, voterName })
       
-      const response = await fetch(`/api/matches/${matchId}/vote`, {
+      const response = await fetch(`/api/vote`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ voterName }),
+        body: JSON.stringify({ id: matchId, voterName }),
       })
 
       console.log('응답 상태:', response.status, response.statusText)
