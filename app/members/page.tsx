@@ -84,7 +84,7 @@ export default function MembersPage() {
       </div>
 
       {/* 팀원 목록 */}
-      <div className="px-3 py-4">
+      <div className="px-3 py-4 pb-8">
         <div className="space-y-3">
           {members.length === 0 ? (
             <div className="text-center py-12">
@@ -171,6 +171,9 @@ export default function MembersPage() {
           )}
         </div>
       </div>
+
+      {/* 하단 네비게이션 공간 확보 */}
+      <div className="h-20"></div>
 
       {/* 하단 네비게이션 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
