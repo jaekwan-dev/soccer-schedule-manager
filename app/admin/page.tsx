@@ -711,7 +711,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="px-3 py-4">
+      <div className="px-3 py-4 pb-8">
         {/* 성공 메시지 */}
         {successMessage && (
           <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -1242,7 +1242,7 @@ export default function AdminPage() {
         )}
 
         {mainTab === 'members' && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2 pb-6">
             {/* 팀원 등록/수정 폼 */}
             <Card className="border-0 shadow-sm" data-member-form>
               <CardHeader className="pb-3">
@@ -1311,14 +1311,14 @@ export default function AdminPage() {
             </Card>
 
             {/* 등록된 팀원 목록 */}
-            <Card className="border-0 shadow-sm">
+            <Card className="border-0 shadow-sm mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   등록된 팀원 목록 ({members.length}명)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pb-6">
                 <div className="space-y-4">
                   {members.length === 0 ? (
                     <div className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
