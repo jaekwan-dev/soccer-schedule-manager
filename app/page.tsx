@@ -4,9 +4,8 @@ import { useState, useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { MapPin, Users, Clock, Calendar, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, Users, Clock, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import Image from 'next/image'
 
 interface Match {
@@ -25,6 +24,8 @@ interface Match {
     name: string;
     vote: 'attend' | 'absent';
     votedAt: string;
+    type: 'member' | 'guest';
+    inviter?: string;
   }>;
 }
 
@@ -49,9 +50,10 @@ export default function Home() {
   const [showInitialLoading, setShowInitialLoading] = useState(true)
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null)
   const [voterName, setVoterName] = useState("")
-  const [selectedVote, setSelectedVote] = useState<'attend' | 'absent' | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
+  const [voterType, setVoterType] = useState<'member_attend' | 'guest_attend' | 'absent'>('member_attend')
+  const [inviterName, setInviterName] = useState("")
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [newComment, setNewComment] = useState("")
   const [commentAuthor, setCommentAuthor] = useState("")
@@ -138,12 +140,10 @@ export default function Home() {
     if (expandedMatchId === match.id) {
       setExpandedMatchId(null)
       setVoterName("")
-      setSelectedVote(null)
       setShowSuggestions(false)
     } else {
       setExpandedMatchId(match.id)
       setVoterName("")
-      setSelectedVote(null)
       setShowSuggestions(false)
       
       // 댓글 로드
@@ -187,7 +187,11 @@ export default function Home() {
   }
 
   const handleVoteSubmit = async (matchId: string) => {
-    if (!voterName.trim() || !selectedVote) return
+    if (!voterName.trim()) return
+    if (voterType === 'guest_attend' && !inviterName.trim()) {
+      alert('게스트의 경우 초대자를 입력해주세요.')
+      return
+    }
 
     try {
       const response = await fetch(`/api/vote`, {
@@ -198,7 +202,9 @@ export default function Home() {
         body: JSON.stringify({
           id: matchId,
           name: voterName.trim(),
-          vote: selectedVote,
+          vote: voterType === 'absent' ? 'absent' : 'attend',
+          type: voterType === 'guest_attend' ? 'guest' : 'member',
+          inviter: voterType === 'guest_attend' ? inviterName.trim() : undefined,
         }),
       })
 
@@ -211,7 +217,8 @@ export default function Home() {
           )
         )
         setVoterName("")
-        setSelectedVote(null)
+        setVoterType('member_attend')
+        setInviterName("")
       } else {
         const error = await response.json()
         alert(error.error || '투표 처리 중 오류가 발생했습니다.')
@@ -376,12 +383,12 @@ export default function Home() {
                           </div>
 
                           {/* 참석/불참 정보 - 칩 모양 */}
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex flex-col gap-1 text-xs">
                             <div className="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
                               <span className="font-medium">참석</span>
                               <span className="font-bold">{match.attendanceVotes.attend}/{match.maxAttendees || 20}</span>
                             </div>
-                            <div className="px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded-full flex items-center gap-1">
+                            <div className="px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-full flex items-center gap-1 opacity-60">
                               <span className="font-medium">불참</span>
                               <span className="font-bold">{match.attendanceVotes.absent}</span>
                             </div>
@@ -422,15 +429,51 @@ export default function Home() {
                           </div>
 
                           <div className="space-y-3">
+                            {/* 참가자 유형 선택 */}
+                            <div className="space-y-2">
+                              {/* <Label>참가자 유형</Label> */}
+                              <div className="grid grid-cols-3 gap-2">
+                                <Button
+                                  variant={voterType === 'member_attend' ? 'default' : 'outline'}
+                                  onClick={() => setVoterType('member_attend')}
+                                  className={`${voterType === 'member_attend' ? 'bg-green-600 hover:bg-green-700' : 'border-green-600 text-green-600 hover:bg-green-50'}`}
+                                >
+                                  팀원 참석
+                                </Button>
+                                <Button
+                                  variant={voterType === 'guest_attend' ? 'default' : 'outline'}
+                                  onClick={() => setVoterType('guest_attend')}
+                                  className={`${voterType === 'guest_attend' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-600 text-purple-600 hover:bg-purple-50'}`}
+                                >
+                                  게스트 참석
+                                </Button>
+                                <Button
+                                  variant={voterType === 'absent' ? 'default' : 'outline'}
+                                  onClick={() => setVoterType('absent')}
+                                  className={`${voterType === 'absent' ? 'bg-red-600 hover:bg-red-700' : 'border-red-600 text-red-600 hover:bg-red-50'}`}
+                                >
+                                  팀원 불참
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* 이름 입력 */}
                             <div className="space-y-2 relative">
-                              <Label htmlFor="voterName">이름</Label>
+                              {/* <Label htmlFor="voterName">
+                                {voterType === 'member_attend' ? '팀원명' : 
+                                 voterType === 'guest_attend' ? '게스트명' : '이름'}
+                              </Label> */}
                               <Input
                                 id="voterName"
-                                placeholder="이름을 입력하세요"
+                                placeholder={
+                                  voterType === 'member_attend' ? '팀원명을 입력하세요' :
+                                  voterType === 'guest_attend' ? '게스트명을 입력하세요' :
+                                  '팀원명을 입력하세요'
+                                }
                                 value={voterName}
                                 onChange={(e) => handleNameChange(e.target.value)}
                                 onFocus={() => {
-                                  if (voterName.trim() && filteredMembers.length > 0) {
+                                  if (voterName.trim() && filteredMembers.length > 0 && voterType === 'member_attend') {
                                     setShowSuggestions(true)
                                   }
                                 }}
@@ -438,11 +481,11 @@ export default function Home() {
                                   // 약간의 지연을 두어 클릭 이벤트가 처리되도록 함
                                   setTimeout(() => setShowSuggestions(false), 150)
                                 }}
-                                className="border-0 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-lg transition-all duration-200"
+                                className="border-0 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-lg transition-all duration-200"
                               />
                               
-                              {/* 자동완성 제안 목록 */}
-                              {showSuggestions && filteredMembers.length > 0 && (
+                              {/* 자동완성 제안 목록 (팀원인 경우만) */}
+                              {showSuggestions && filteredMembers.length > 0 && voterType === 'member_attend' && (
                                 <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                                   {filteredMembers.map((member) => (
                                     <div
@@ -457,28 +500,61 @@ export default function Home() {
                               )}
                             </div>
 
-                            <div className="space-y-2">
-                              <Label>참석 여부</Label>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant={selectedVote === 'attend' ? 'default' : 'outline'}
-                                  onClick={() => setSelectedVote('attend')}
-                                  disabled={isMaxReached}
-                                  className={`flex-1 ${selectedVote === 'attend' ? 'bg-green-600 hover:bg-green-700' : 'border-green-600 text-green-600 hover:bg-green-50'} ${isMaxReached ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                  <Check className="h-4 w-4 mr-1" />
-                                  참석
-                                </Button>
-                                <Button
-                                  variant={selectedVote === 'absent' ? 'default' : 'outline'}
-                                  onClick={() => setSelectedVote('absent')}
-                                  className={`flex-1 ${selectedVote === 'absent' ? 'bg-red-600 hover:bg-red-700' : 'border-red-600 text-red-600 hover:bg-red-50'}`}
-                                >
-                                  <X className="h-4 w-4 mr-1" />
-                                  불참
-                                </Button>
+                            {/* 초대자 입력 (게스트 참석인 경우만) */}
+                            {voterType === 'guest_attend' && (
+                              <div className="space-y-2 relative">
+                                {/* <Label htmlFor="inviterName">초대한 팀원</Label> */}
+                                <Input
+                                  id="inviterName"
+                                  placeholder="초대한 팀원명을 입력하세요"
+                                  value={inviterName}
+                                  onChange={(e) => {
+                                    setInviterName(e.target.value)
+                                    // 초대자 입력 시 자동완성 필터링
+                                    if (e.target.value.trim()) {
+                                      const filtered = members
+                                        .filter(member => 
+                                          member.name.toLowerCase().includes(e.target.value.toLowerCase())
+                                        )
+                                        .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+                                      setFilteredMembers(filtered)
+                                      setShowSuggestions(filtered.length > 0)
+                                    } else {
+                                      setShowSuggestions(false)
+                                    }
+                                  }}
+                                  onFocus={() => {
+                                    if (inviterName.trim() && filteredMembers.length > 0) {
+                                      setShowSuggestions(true)
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => setShowSuggestions(false), 150)
+                                  }}
+                                  className="border-0 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-lg transition-all duration-200"
+                                />
+                                
+                                {/* 초대자 자동완성 제안 목록 */}
+                                {showSuggestions && filteredMembers.length > 0 && (
+                                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                    {filteredMembers.map((member) => (
+                                      <div
+                                        key={member.id}
+                                        onClick={() => {
+                                          setInviterName(member.name)
+                                          setShowSuggestions(false)
+                                        }}
+                                        className="px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                                      >
+                                        <span className="text-sm">{member.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            </div>
+                            )}
+
+
 
                             {/* 참석자/불참자 목록 */}
                             {match.voters && match.voters.length > 0 && (
@@ -497,8 +573,13 @@ export default function Home() {
                                       {match.voters
                                         .filter(voter => voter.vote === 'attend')
                                         .map((voter, index) => (
-                                          <span key={index} className="px-1 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
+                                          <span key={index} className={`px-1 py-1 text-xs border rounded ${
+                                            voter.type === 'guest' 
+                                              ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                              : 'bg-green-50 text-green-700 border-green-200'
+                                          }`}>
                                             {voter.name}
+                                            {voter.type === 'guest' && voter.inviter && ` (${voter.inviter} 지인)`}
                                           </span>
                                         ))}
                                       {match.voters.filter(v => v.vote === 'attend').length === 0 && (
@@ -536,7 +617,7 @@ export default function Home() {
                             <div className="flex gap-2">
                               <Button 
                                 onClick={() => handleVoteSubmit(match.id)}
-                                disabled={!voterName.trim() || !selectedVote}
+                                disabled={!voterName.trim() || (voterType === 'guest_attend' && !inviterName.trim())}
                                 className="flex-1"
                               >
                                 투표하기
@@ -637,8 +718,13 @@ export default function Home() {
                               {match.voters
                                 .filter(voter => voter.vote === 'attend')
                                 .map((voter, index) => (
-                                  <span key={index} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
+                                  <span key={index} className={`px-2 py-1 text-xs border rounded ${
+                                    voter.type === 'guest' 
+                                      ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                      : 'bg-green-50 text-green-700 border-green-200'
+                                  }`}>
                                     {voter.name}
+                                    {voter.type === 'guest' && voter.inviter && ` (${voter.inviter} 지인)`}
                                   </span>
                                 ))}
                               {match.voters.filter(v => v.vote === 'attend').length === 0 && (

@@ -15,6 +15,8 @@ export interface Voter {
   name: string
   vote: 'attend' | 'absent'
   votedAt: string // 투표 시간
+  type: 'member' | 'guest' // 팀원 또는 게스트
+  inviter?: string // 초대자 (게스트인 경우)
 }
 
 export interface UserVote {

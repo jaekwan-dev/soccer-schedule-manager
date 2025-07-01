@@ -22,6 +22,8 @@ interface Match {
     name: string;
     vote: 'attend' | 'absent';
     votedAt: string;
+    type: 'member' | 'guest';
+    inviter?: string;
   }>;
 }
 
@@ -406,7 +408,9 @@ export default function AdminPage() {
       const member = members.find(m => m.name === attendee.name)
       return {
         name: attendee.name,
-        level: member?.level || 3 // 기본 레벨: 아마추어
+        level: member?.level || 3, // 기본 레벨: 아마추어
+        type: attendee.type,
+        inviter: attendee.inviter
       }
     })
 
@@ -414,21 +418,70 @@ export default function AdminPage() {
     attendeesWithLevel.sort((a, b) => b.level - a.level)
 
     // 팀 초기화
-    const teams: Array<{members: Array<{name: string, level: number}>, totalLevel: number}> = []
+    const teams: Array<{members: Array<{name: string, level: number, type: string, inviter?: string}>, totalLevel: number}> = []
     for (let i = 0; i < numTeams; i++) {
       teams.push({ members: [], totalLevel: 0 })
     }
 
-    // 레벨이 높은 선수부터 가장 약한 팀에 배정
-    attendeesWithLevel.forEach(player => {
-      // 현재 가장 약한 팀 찾기
-      const weakestTeam = teams.reduce((min, team, index) => 
-        team.totalLevel < teams[min].totalLevel ? index : min, 0
-      )
-      
-      teams[weakestTeam].members.push(player)
-      teams[weakestTeam].totalLevel += player.level
+    // 초대자-게스트 묶음 만들기
+    const inviterGuestPairs: {[inviter: string]: string[]} = {}
+    attendeesWithLevel.forEach(attendee => {
+      if (attendee.type === 'guest' && attendee.inviter) {
+        if (!inviterGuestPairs[attendee.inviter]) {
+          inviterGuestPairs[attendee.inviter] = []
+        }
+        inviterGuestPairs[attendee.inviter].push(attendee.name)
+      }
     })
+
+    // 이미 배정된 사람 체크
+    const assigned = new Set<string>()
+
+    // 1. 초대자-게스트 묶음 우선 배정
+    Object.entries(inviterGuestPairs).forEach(([inviter, guests]) => {
+      // 초대자와 게스트 묶음
+      const group = [inviter, ...guests]
+      // 인원이 가장 적은 팀 찾기
+      const minTeamIdx = teams.reduce((minIdx, team, idx) =>
+        team.members.length < teams[minIdx].members.length ? idx : minIdx, 0)
+      // 만약 이 그룹을 한 팀에 넣었을 때 팀 인원이 너무 많아지면, 게스트 일부만 남기고 분산
+      const maxPerTeam = Math.ceil(attendees.length / numTeams)
+      if (teams[minTeamIdx].members.length + group.length > maxPerTeam) {
+        // 초대자만 우선 배정, 남는 게스트는 나중에 랜덤 분산
+        const inviterObj = attendeesWithLevel.find(a => a.name === inviter)
+        if (inviterObj) {
+          teams[minTeamIdx].members.push(inviterObj)
+          teams[minTeamIdx].totalLevel += inviterObj.level
+          assigned.add(inviterObj.name)
+        }
+      } else {
+        // 그룹 전체를 한 팀에 배정
+        group.forEach(name => {
+          const obj = attendeesWithLevel.find(a => a.name === name)
+          if (obj) {
+            teams[minTeamIdx].members.push(obj)
+            teams[minTeamIdx].totalLevel += obj.level
+            assigned.add(obj.name)
+          }
+        })
+      }
+    })
+
+    // 2. 남은 게스트(묶음에서 분산된 게스트)와 일반 팀원 배정
+    const unassigned = attendeesWithLevel.filter(a => !assigned.has(a.name))
+    // 게스트 우선, 그 다음 일반 팀원
+    const shuffled = [...unassigned].sort(() => Math.random() - 0.5)
+    shuffled.forEach(player => {
+      // 인원이 가장 적은 팀 찾기
+      const minTeamIdx = teams.reduce((minIdx, team, idx) =>
+        team.members.length < teams[minIdx].members.length ? idx : minIdx, 0)
+      teams[minTeamIdx].members.push(player)
+      teams[minTeamIdx].totalLevel += player.level
+      assigned.add(player.name)
+    })
+
+    // 팀 색상 매핑
+    const teamColors = ['블루', '화이트', '오렌지']
 
     // 결과 텍스트 생성
     let result = `🏆 자동 팀편성 결과 (${numTeams}팀)\n`
@@ -437,14 +490,14 @@ export default function AdminPage() {
     result += `👥 총 참석자: ${attendees.length}명\n\n`
 
     teams.forEach((team, index) => {
-      result += `⚽ ${index + 1}팀 (평균 레벨: ${(team.totalLevel / team.members.length).toFixed(1)})\n`
+      result += `⚽ ${index + 1}팀 (${teamColors[index]})\n`
       team.members.forEach(member => {
-        const levelName = member.level === 1 ? '루키' : 
-                         member.level === 2 ? '비기너' : 
-                         member.level === 3 ? '아마추어' : 
-                         member.level === 4 ? '세미프로' : '프로'
-        result += `  • ${member.name} (${levelName})\n`
+        const displayName = member.type === 'guest' && member.inviter 
+          ? `${member.name} (${member.inviter} 지인)`
+          : member.name
+        result += `  • ${displayName}\n`
       })
+      result += '\n'
     })
 
     return result
@@ -463,6 +516,8 @@ export default function AdminPage() {
       setGeneratedTeams(result)
     }
   }
+
+
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedTeams)
@@ -1051,12 +1106,12 @@ export default function AdminPage() {
                               </div>
 
                               {/* 참석/불참 정보 - 칩 모양 */}
-                              <div className="flex items-center gap-2 text-xs">
+                              <div className="flex flex-col gap-1 text-xs">
                                 <div className="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
                                   <span className="font-medium">참석</span>
                                   <span className="font-bold">{match.attendanceVotes.attend}/{match.maxAttendees || 20}</span>
                                 </div>
-                                <div className="px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded-full flex items-center gap-1">
+                                <div className="px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-full flex items-center gap-1 opacity-60">
                                   <span className="font-medium">불참</span>
                                   <span className="font-bold">{match.attendanceVotes.absent}</span>
                                 </div>
@@ -1088,8 +1143,15 @@ export default function AdminPage() {
                                   {match.voters
                                     .filter(voter => voter.vote === 'attend')
                                     .map((voter, index) => (
-                                      <div key={index} className="inline-flex items-center px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded transition-colors">
-                                        <span className="mr-2">{voter.name}</span>
+                                      <div key={index} className={`inline-flex items-center px-2 py-1 text-xs border rounded transition-colors ${
+                                        voter.type === 'guest' 
+                                          ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                          : 'bg-green-50 text-green-700 border-green-200'
+                                      }`}>
+                                        <span className="mr-2">
+                                          {voter.name}
+                                          {voter.type === 'guest' && voter.inviter && ` (${voter.inviter} 지인)`}
+                                        </span>
                                         <button
                                           onClick={() => handleDeleteVote(match.id, voter.name)}
                                           className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
@@ -1458,11 +1520,15 @@ export default function AdminPage() {
                       onChange={(e) => setTeamCount(parseInt(e.target.value))}
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
                     >
-                      {Array.from({ length: Math.min(8, selectedMatch.voters?.filter(v => v.vote === 'attend').length || 2) }, (_, i) => i + 2).map((num) => (
-                        <option key={num} value={num}>
-                          {num}팀
-                        </option>
-                      ))}
+                      {(() => {
+                        const attendeeCount = selectedMatch.voters?.filter(v => v.vote === 'attend').length || 0
+                        const maxTeams = Math.min(4, Math.max(2, Math.floor(attendeeCount / 2)))
+                        return Array.from({ length: maxTeams - 1 }, (_, i) => i + 2).map((num) => (
+                          <option key={num} value={num}>
+                            {num}팀
+                          </option>
+                        ))
+                      })()}
                     </select>
                   </div>
 

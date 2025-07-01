@@ -18,12 +18,20 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, vote } = body;
+    const { id, name, vote, type, inviter } = body;
 
-    console.log('투표 요청:', { id, name, vote });
+    console.log('투표 요청:', { id, name, vote, type, inviter });
 
     if (!id || !name || !vote || !['attend', 'absent'].includes(vote)) {
       return NextResponse.json({ error: '올바른 투표 정보가 필요합니다.' }, { status: 400 });
+    }
+
+    if (!type || !['member', 'guest'].includes(type)) {
+      return NextResponse.json({ error: '올바른 참가자 유형이 필요합니다.' }, { status: 400 });
+    }
+
+    if (type === 'guest' && !inviter) {
+      return NextResponse.json({ error: '게스트의 경우 초대자가 필요합니다.' }, { status: 400 });
     }
 
     // 현재 경기 정보 조회
@@ -65,6 +73,8 @@ export async function POST(request: NextRequest) {
       name,
       vote: vote as 'attend' | 'absent',
       votedAt: new Date().toISOString(),
+      type: type as 'member' | 'guest',
+      inviter: type === 'guest' ? inviter : undefined,
     };
     const updatedVoters = [...filteredVoters, newVoter];
 

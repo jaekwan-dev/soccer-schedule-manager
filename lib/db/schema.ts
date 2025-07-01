@@ -16,6 +16,8 @@ export const matches = pgTable('matches', {
     name: string;
     vote: 'attend' | 'absent';
     votedAt: string;
+    type: 'member' | 'guest';
+    inviter?: string;
   }>>().notNull().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
