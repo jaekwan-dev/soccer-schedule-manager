@@ -438,7 +438,7 @@ export default function Home() {
                                   onClick={() => setVoterType('member_attend')}
                                   className={`${voterType === 'member_attend' ? 'bg-green-600 hover:bg-green-700' : 'border-green-600 text-green-600 hover:bg-green-50'}`}
                                 >
-                                  팀원 참석
+                                  참석
                                 </Button>
                                 <Button
                                   variant={voterType === 'guest_attend' ? 'default' : 'outline'}
@@ -452,7 +452,7 @@ export default function Home() {
                                   onClick={() => setVoterType('absent')}
                                   className={`${voterType === 'absent' ? 'bg-red-600 hover:bg-red-700' : 'border-red-600 text-red-600 hover:bg-red-50'}`}
                                 >
-                                  팀원 불참
+                                  불참
                                 </Button>
                               </div>
                             </div>
