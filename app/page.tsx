@@ -101,7 +101,7 @@ export default function Home() {
     }
   }
 
-  const handleVoteSubmit = async (matchId: string) => {
+  const handleVoteSubmit = async () => {
     // 투표 후 경기 데이터 새로고침
     try {
       const response = await fetch('/api/matches')
