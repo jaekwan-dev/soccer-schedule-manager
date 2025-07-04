@@ -2,10 +2,20 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+
+// 분리된 컴포넌트들 import
+import AdminHeader from "@/components/admin/AdminHeader"
+import AdminTabs from "@/components/admin/AdminTabs"
+import LoginForm from "@/components/admin/LoginForm"
+import MatchForm from "@/components/admin/MatchForm"
+import MatchList from "@/components/admin/MatchList"
+import MemberList from "@/components/admin/MemberList"
+import MemberForm from "@/components/admin/MemberForm"
+import TeamModal from "@/components/admin/TeamModal"
+import {
+  getLevelName
+} from "@/lib/utils";
+
 interface Match {
   id: string;
   date: string;
@@ -35,18 +45,38 @@ interface Member {
   updatedAt: string;
 }
 
-interface Comment {
-  id: string;
-  matchId: string;
-  authorName: string;
-  content: string;
-  createdAt: string;
+// Kakao 타입 선언 (window.Kakao 오류 방지)
+declare global {
+  interface Window {
+    Kakao: {
+      init: (key: string) => void;
+      Share: {
+        sendDefault: (options: {
+          objectType: string;
+          content: {
+            title: string;
+            description: string;
+            imageUrl: string;
+            link: {
+              mobileWebUrl: string;
+              webUrl: string;
+            };
+          };
+        }) => void;
+      };
+      Link: {
+        sendDefault: (options: {
+          objectType: string;
+          text: string;
+          link: {
+            mobileWebUrl: string;
+            webUrl: string;
+          };
+        }) => void;
+      };
+    };
+  }
 }
-
-
-import Link from "next/link"
-import { ArrowLeft, Calendar, Clock, MapPin, Lock, Edit, Trash2, Users } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -60,30 +90,42 @@ export default function AdminPage() {
   const [mainTab, setMainTab] = useState<'matches' | 'members'>('matches')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showTeamModal, setShowTeamModal] = useState(false)
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
+  const [selectedMatch] = useState<Match | null>(null)
   const [teamCount, setTeamCount] = useState<number>(2)
   const [generatedTeams, setGeneratedTeams] = useState<string>("")
   const [showVenueSuggestions, setShowVenueSuggestions] = useState(false)
   const [venueSuggestions, setVenueSuggestions] = useState<string[]>([])
-  const [comments, setComments] = useState<Record<string, Comment[]>>({})
-  const [formData, setFormData] = useState({
+
+  
+  const [formData, setFormData] = useState<{
+    date: string;
+    time: string;
+    venue: string;
+    voteDeadline: string;
+    voteDeadlineTime: string;
+    maxAttendees: number | string;
+    attendVotes: number;
+    absentVotes: number;
+  }>({
     date: "",
     time: "",
     venue: "",
     voteDeadline: "",
     voteDeadlineTime: "23:59",
-    maxAttendees: 20 as number | string,
+    maxAttendees: 20,
     attendVotes: 0,
     absentVotes: 0,
   })
 
-  const [memberFormData, setMemberFormData] = useState({
+  const [memberFormData, setMemberFormData] = useState<{
+    name: string;
+    level: number;
+  }>({
     name: "",
     level: 1,
   })
 
   useEffect(() => {
-    // URL 파라미터 확인
     const urlParams = new URLSearchParams(window.location.search)
     const tab = urlParams.get('tab')
     const auth = urlParams.get('auth')
@@ -103,7 +145,6 @@ export default function AdminPage() {
   }, [isAuthenticated])
 
   useEffect(() => {
-    // URL 파라미터가 변경될 때마다 체크
     const urlParams = new URLSearchParams(window.location.search)
     const tab = urlParams.get('tab')
     const auth = urlParams.get('auth')
@@ -124,14 +165,12 @@ export default function AdminPage() {
         const data = await response.json()
         setMatches(data)
         
-        // 경기장 자동완성을 위한 데이터 업데이트
         const venues = data.map((match: Match) => match.venue).filter(Boolean)
         const venueCount = venues.reduce((acc: Record<string, number>, venue: string) => {
           acc[venue] = (acc[venue] || 0) + 1
           return acc
         }, {})
         
-        // 사용 빈도순으로 정렬하여 상위 5개 추출
         const sortedVenues = Object.entries(venueCount)
           .sort(([,a], [,b]) => (b as number) - (a as number))
           .slice(0, 5)
@@ -151,7 +190,6 @@ export default function AdminPage() {
       const response = await fetch('/api/members')
       if (response.ok) {
         const data = await response.json()
-        // 한글 이름순으로 정렬 (API에서 이미 정렬되지만 추가 보장)
         const sortedData = data.sort((a: Member, b: Member) => a.name.localeCompare(b.name, 'ko-KR'))
         setMembers(sortedData)
       } else {
@@ -187,39 +225,31 @@ export default function AdminPage() {
     try {
       let response
       if (editingMatch) {
-        // 수정
         response = await fetch('/api/matches', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(matchData),
         })
       } else {
-        // 새로 생성
         response = await fetch('/api/matches', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(matchData),
         })
       }
 
       if (response.ok) {
-        await loadMatches() // 목록 새로고침
-        const message = editingMatch ? '경기 일정이 수정되었습니다.' : '경기 일정이 등록되었습니다.'
-        setSuccessMessage(message)
-        resetForm()
-        // 3초 후 메시지 자동 제거
+        setSuccessMessage(editingMatch ? '경기가 수정되었습니다.' : '경기가 등록되었습니다.')
         setTimeout(() => setSuccessMessage(null), 3000)
+        resetForm()
+        loadMatches()
       } else {
         const error = await response.json()
-        alert(error.error || '경기 일정 처리 중 오류가 발생했습니다.')
+        alert(error.error || '경기 등록 중 오류가 발생했습니다.')
       }
     } catch (error) {
-      console.error('경기 일정 처리 오류:', error)
-      alert('경기 일정 처리 중 오류가 발생했습니다.')
+      console.error('경기 등록 오류:', error)
+      alert('경기 등록 중 오류가 발생했습니다.')
     }
   }
 
@@ -232,32 +262,31 @@ export default function AdminPage() {
       voteDeadline: match.voteDeadline,
       voteDeadlineTime: match.voteDeadlineTime || "23:59",
       maxAttendees: match.maxAttendees || 20,
-      attendVotes: match.attendanceVotes.attend,
-      absentVotes: match.attendanceVotes.absent,
+      attendVotes: 0,
+      absentVotes: 0,
     })
     setIsEditing(true)
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm("정말 삭제하시겠습니까?")) {
-      try {
-        const response = await fetch(`/api/matches?id=${id}`, {
-          method: 'DELETE',
-        })
+    if (!confirm('정말로 이 경기를 삭제하시겠습니까?')) return
 
-        if (response.ok) {
-          await loadMatches() // 목록 새로고침
-          setSuccessMessage('경기 일정이 삭제되었습니다.')
-          // 3초 후 메시지 자동 제거
-          setTimeout(() => setSuccessMessage(null), 3000)
-        } else {
-          const error = await response.json()
-          alert(error.error || '경기 일정 삭제 중 오류가 발생했습니다.')
-        }
-      } catch (error) {
-        console.error('경기 일정 삭제 오류:', error)
-        alert('경기 일정 삭제 중 오류가 발생했습니다.')
+    try {
+      const response = await fetch(`/api/matches/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setSuccessMessage('경기가 삭제되었습니다.')
+        setTimeout(() => setSuccessMessage(null), 3000)
+        loadMatches()
+      } else {
+        const error = await response.json()
+        alert(error.error || '경기 삭제 중 오류가 발생했습니다.')
       }
+    } catch (error) {
+      console.error('경기 삭제 오류:', error)
+      alert('경기 삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -268,12 +297,12 @@ export default function AdminPage() {
       venue: "",
       voteDeadline: "",
       voteDeadlineTime: "23:59",
-      maxAttendees: 20 as number | string,
+      maxAttendees: 20,
       attendVotes: 0,
       absentVotes: 0,
     })
-    setEditingMatch(null)
     setIsEditing(false)
+    setEditingMatch(null)
   }
 
   const handleMemberSubmit = async (e: React.FormEvent) => {
@@ -290,34 +319,29 @@ export default function AdminPage() {
       if (editingMember) {
         response = await fetch('/api/members', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(memberData),
         })
       } else {
         response = await fetch('/api/members', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(memberData),
         })
       }
 
       if (response.ok) {
-        await loadMembers()
-        const message = editingMember ? '팀원이 수정되었습니다.' : '팀원이 등록되었습니다.'
-        setSuccessMessage(message)
-        resetMemberForm()
+        setSuccessMessage(editingMember ? '팀원이 수정되었습니다.' : '팀원이 등록되었습니다.')
         setTimeout(() => setSuccessMessage(null), 3000)
+        resetMemberForm()
+        loadMembers()
       } else {
         const error = await response.json()
-        alert(error.error || '팀원 처리 중 오류가 발생했습니다.')
+        alert(error.error || '팀원 등록 중 오류가 발생했습니다.')
       }
     } catch (error) {
-      console.error('팀원 처리 오류:', error)
-      alert('팀원 처리 중 오류가 발생했습니다.')
+      console.error('팀원 등록 오류:', error)
+      alert('팀원 등록 중 오류가 발생했습니다.')
     }
   }
 
@@ -327,38 +351,27 @@ export default function AdminPage() {
       name: member.name,
       level: member.level,
     })
-    
-    // 편집 폼으로 스크롤
-    setTimeout(() => {
-      const memberFormElement = document.querySelector('[data-member-form]')
-      if (memberFormElement) {
-        memberFormElement.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start'
-        })
-      }
-    }, 100)
   }
 
   const handleMemberDelete = async (id: string) => {
-    if (confirm("정말 삭제하시겠습니까?")) {
-      try {
-        const response = await fetch(`/api/members?id=${id}`, {
-          method: 'DELETE',
-        })
+    if (!confirm('정말로 이 팀원을 삭제하시겠습니까?')) return
 
-        if (response.ok) {
-          await loadMembers()
-          setSuccessMessage('팀원이 삭제되었습니다.')
-          setTimeout(() => setSuccessMessage(null), 3000)
-        } else {
-          const error = await response.json()
-          alert(error.error || '팀원 삭제 중 오류가 발생했습니다.')
-        }
-      } catch (error) {
-        console.error('팀원 삭제 오류:', error)
-        alert('팀원 삭제 중 오류가 발생했습니다.')
+    try {
+      const response = await fetch(`/api/members/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setSuccessMessage('팀원이 삭제되었습니다.')
+        setTimeout(() => setSuccessMessage(null), 3000)
+        loadMembers()
+      } else {
+        const error = await response.json()
+        alert(error.error || '팀원 삭제 중 오류가 발생했습니다.')
       }
+    } catch (error) {
+      console.error('팀원 삭제 오류:', error)
+      alert('팀원 삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -372,399 +385,147 @@ export default function AdminPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    const month = date.getMonth() + 1
-    const day = date.getDate()
-    const weekdays = ["일", "월", "화", "수", "목", "금", "토"]
-    const weekday = weekdays[date.getDay()]
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const isToday = date.toDateString() === today.toDateString()
+    const isTomorrow = date.toDateString() === tomorrow.toDateString()
+
+    const fullDate = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+    const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()]
 
     return {
-      day: day,
-      weekday: weekday,
-      monthDay: `${month}/${day}`,
-      fullDate: `${month}월 ${day}일 (${weekday})`,
+      fullDate: `${fullDate} (${dayOfWeek})`,
+      isToday,
+      isTomorrow,
     }
   }
 
   const isVoteDeadlinePassed = (deadline: string, deadlineTime?: string) => {
     const now = new Date()
-    const deadlineDateTime = new Date(`${deadline}T${deadlineTime || '23:59'}:00`)
-    return now > deadlineDateTime
+    const deadlineDate = new Date(`${deadline}T${deadlineTime || '23:59'}`)
+    return now > deadlineDate
   }
 
-  // 자동 팀편성 함수
   const generateTeams = (match: Match, numTeams: number) => {
-    const attendees = match.voters?.filter(voter => voter.vote === 'attend') || []
-    
-    if (attendees.length === 0) {
-      return "참석자가 없습니다."
-    }
+    const attendees = match.voters?.filter(v => v.vote === 'attend') || []
+    if (attendees.length === 0) return "참석자가 없습니다."
 
-    if (numTeams < 2 || numTeams > attendees.length) {
-      return "팀 수가 올바르지 않습니다."
-    }
-
-    // 팀원들의 레벨 정보를 가져오기
-    const attendeesWithLevel = attendees.map(attendee => {
-      const member = members.find(m => m.name === attendee.name)
+    // 팀원 정보 가져오기
+    const attendeeMembers = attendees.map(voter => {
+      const member = members.find(m => m.name === voter.name)
       return {
-        name: attendee.name,
-        level: member?.level || 3, // 기본 레벨: 아마추어
-        type: attendee.type,
-        inviter: attendee.inviter
+        name: voter.name,
+        level: member?.level || 1,
+        type: voter.type,
+        inviter: voter.inviter
       }
     })
 
-    // 레벨별로 정렬 (높은 레벨부터)
-    attendeesWithLevel.sort((a, b) => b.level - a.level)
-
-    // 팀 초기화
-    const teams: Array<{members: Array<{name: string, level: number, type: string, inviter?: string}>, totalLevel: number}> = []
-    for (let i = 0; i < numTeams; i++) {
-      teams.push({ members: [], totalLevel: 0 })
+    // 레벨별 가중치 계산
+    const levelWeights = {
+      15: 10, // 프로1
+      14: 9,  // 세미프로3
+      13: 8,  // 세미프로2
+      12: 7,  // 세미프로1
+      11: 6,  // 아마추어5
+      10: 5,  // 아마추어4
+      9: 4,   // 아마추어3
+      8: 3,   // 아마추어2
+      7: 2,   // 아마추어1
+      6: 1,   // 비기너3
+      5: 1,   // 비기너2
+      4: 1,   // 비기너1
+      3: 0,   // 루키3
+      2: 0,   // 루키2
+      1: 0,   // 루키1
     }
 
-    // 초대자-게스트 묶음 만들기
-    const inviterGuestPairs: {[inviter: string]: string[]} = {}
-    attendeesWithLevel.forEach(attendee => {
-      if (attendee.type === 'guest' && attendee.inviter) {
-        if (!inviterGuestPairs[attendee.inviter]) {
-          inviterGuestPairs[attendee.inviter] = []
-        }
-        inviterGuestPairs[attendee.inviter].push(attendee.name)
-      }
-    })
+    // 팀별로 나누기
+    const teams: Array<Array<{name: string, level: number, type: string, inviter?: string}>> = Array.from({length: numTeams}, () => [])
+    const teamWeights = Array.from({length: numTeams}, () => 0)
 
-    // 이미 배정된 사람 체크
-    const assigned = new Set<string>()
+    // 높은 레벨부터 팀에 배정
+    attendeeMembers
+      .sort((a, b) => b.level - a.level)
+      .forEach(member => {
+        // 가장 가중치가 낮은 팀 찾기
+        const minWeight = Math.min(...teamWeights)
+        const teamIndex = teamWeights.indexOf(minWeight)
+        
+        teams[teamIndex].push(member)
+        teamWeights[teamIndex] += levelWeights[member.level as keyof typeof levelWeights] || 0
+      })
 
-    // 1. 초대자-게스트 묶음 우선 배정
-    Object.entries(inviterGuestPairs).forEach(([inviter, guests]) => {
-      // 초대자와 게스트 묶음
-      const group = [inviter, ...guests]
-      // 인원이 가장 적은 팀 찾기
-      const minTeamIdx = teams.reduce((minIdx, team, idx) =>
-        team.members.length < teams[minIdx].members.length ? idx : minIdx, 0)
-      // 만약 이 그룹을 한 팀에 넣었을 때 팀 인원이 너무 많아지면, 게스트 일부만 남기고 분산
-      const maxPerTeam = Math.ceil(attendees.length / numTeams)
-      if (teams[minTeamIdx].members.length + group.length > maxPerTeam) {
-        // 초대자만 우선 배정, 남는 게스트는 나중에 랜덤 분산
-        const inviterObj = attendeesWithLevel.find(a => a.name === inviter)
-        if (inviterObj) {
-          teams[minTeamIdx].members.push(inviterObj)
-          teams[minTeamIdx].totalLevel += inviterObj.level
-          assigned.add(inviterObj.name)
-        }
-      } else {
-        // 그룹 전체를 한 팀에 배정
-        group.forEach(name => {
-          const obj = attendeesWithLevel.find(a => a.name === name)
-          if (obj) {
-            teams[minTeamIdx].members.push(obj)
-            teams[minTeamIdx].totalLevel += obj.level
-            assigned.add(obj.name)
-          }
-        })
-      }
-    })
-
-    // 2. 남은 게스트(묶음에서 분산된 게스트)와 일반 팀원 배정
-    const unassigned = attendeesWithLevel.filter(a => !assigned.has(a.name))
-    // 게스트 우선, 그 다음 일반 팀원
-    const shuffled = [...unassigned].sort(() => Math.random() - 0.5)
-    shuffled.forEach(player => {
-      // 인원이 가장 적은 팀 찾기
-      const minTeamIdx = teams.reduce((minIdx, team, idx) =>
-        team.members.length < teams[minIdx].members.length ? idx : minIdx, 0)
-      teams[minTeamIdx].members.push(player)
-      teams[minTeamIdx].totalLevel += player.level
-      assigned.add(player.name)
-    })
-
-    // 팀 색상 매핑
-    const teamColors = ['블루', '화이트', '오렌지']
-
-    // 결과 텍스트 생성
-    let result = `🏆 자동 팀편성 결과 (${numTeams}팀)\n`
-    result += `📅 경기일: ${formatDate(match.date).fullDate} ${match.time}\n`
-    result += `📍 장소: ${match.venue}\n`
-    result += `👥 총 참석자: ${attendees.length}명\n\n`
+    // 결과 문자열 생성
+    let result = `${formatDate(match.date).fullDate} ${match.time} - ${match.venue}\n`
+    result += `자동 팀편성 결과 (${attendees.length}명 → ${numTeams}팀)\n\n`
 
     teams.forEach((team, index) => {
-      result += `⚽ ${index + 1}팀 (${teamColors[index]})\n`
-      team.members.forEach(member => {
-        const displayName = member.type === 'guest' && member.inviter 
-          ? `${member.name} (${member.inviter} 지인)`
-          : member.name
-        result += `  • ${displayName}\n`
-      })
-      result += '\n'
+      const teamWeight = teamWeights[index]
+      const memberNames = team.map(m => {
+        const member = members.find(mm => mm.name === m.name)
+        const levelName = getLevelName(member?.level || 1)
+        return `${m.name}(${levelName})`
+      }).join(', ')
+      
+      result += `팀${index + 1} (${team.length}명, 가중치: ${teamWeight}): ${memberNames}\n`
     })
 
     return result
   }
 
-  const handleTeamGeneration = (match: Match) => {
-    setSelectedMatch(match)
-    setShowTeamModal(true)
-    setTeamCount(2)
-    setGeneratedTeams("")
-  }
+
 
   const handleGenerateTeams = () => {
-    if (selectedMatch) {
-      const result = generateTeams(selectedMatch, teamCount)
-      setGeneratedTeams(result)
-    }
+    if (!selectedMatch) return
+    const result = generateTeams(selectedMatch, teamCount)
+    setGeneratedTeams(result)
   }
-
-
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedTeams)
-    alert("팀편성 결과가 클립보드에 복사되었습니다!")
+    alert('팀편성 결과가 클립보드에 복사되었습니다.')
   }
 
   const shareToKakao = async () => {
-    if (!generatedTeams) return
-
     try {
-      // 1. Web Share API 시도 (모바일 우선)
-      if (navigator.share) {
-        await navigator.share({
-          title: '뻥톡 팀편성 결과',
-          text: generatedTeams
+      if (window.Kakao) {
+        window.Kakao.Link.sendDefault({
+          objectType: 'text',
+          text: generatedTeams,
+          link: {
+            mobileWebUrl: window.location.href,
+            webUrl: window.location.href,
+          },
         })
-        return
-      }
-
-      // 2. 모바일에서 카카오톡 URL 스키마 시도
-      if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        const text = encodeURIComponent(generatedTeams)
-        const kakaoUrl = `kakaotalk://send?text=${text}`
-        
-        // 새 창에서 카카오톡 URL 열기
-        const popup = window.open(kakaoUrl, '_blank')
-        
-        // 0.5초 후 팝업이 열리지 않았으면 클립보드 복사로 대체
-        setTimeout(() => {
-          if (popup && popup.closed) {
-            navigator.clipboard.writeText(generatedTeams).then(() => {
-              alert("카카오톡 앱을 찾을 수 없어 클립보드에 복사했습니다.\n카카오톡에서 붙여넣기 하세요.")
-            })
-          }
-        }, 500)
-        
-        return
-      }
-
-      // 3. 데스크톱에서는 클립보드 복사
-      await navigator.clipboard.writeText(generatedTeams)
-      alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
-      
-    } catch (error) {
-      console.error('공유 실패:', error)
-      // 모든 방법이 실패하면 텍스트 선택으로 대체
-      const textArea = document.createElement('textarea')
-      textArea.value = generatedTeams
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textArea)
-      alert("팀편성 결과가 클립보드에 복사되었습니다!\n카카오톡에서 붙여넣기 하세요.")
-    }
-  }
-
-  const handleDeleteVote = async (matchId: string, voterName: string) => {
-    if (!confirm(`${voterName}님의 투표를 삭제하시겠습니까?`)) {
-      return
-    }
-
-    try {
-      console.log('투표 삭제 요청 시작:', { matchId, voterName })
-      
-      const response = await fetch(`/api/vote`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id: matchId, voterName }),
-      })
-
-      console.log('응답 상태:', response.status, response.statusText)
-      console.log('응답 헤더:', response.headers.get('content-type'))
-
-      if (response.ok) {
-        try {
-          const responseText = await response.text()
-          console.log('응답 텍스트:', responseText)
-          
-          if (responseText) {
-            const result = JSON.parse(responseText)
-            console.log('삭제 성공:', result)
-          } else {
-            console.log('빈 응답이지만 성공')
-          }
-          
-          await loadMatches() // 목록 새로고침
-          setSuccessMessage('투표가 삭제되었습니다.')
-          // 3초 후 메시지 자동 제거
-          setTimeout(() => setSuccessMessage(null), 3000)
-        } catch (parseError) {
-          console.error('JSON 파싱 오류:', parseError)
-          // 파싱 오류가 있어도 성공으로 처리 (서버에서 성공 응답을 보냈으므로)
-          await loadMatches()
-          setSuccessMessage('투표가 삭제되었습니다.')
-          setTimeout(() => setSuccessMessage(null), 3000)
-        }
       } else {
-        try {
-          const responseText = await response.text()
-          console.log('에러 응답 텍스트:', responseText)
-          
-          let error: { error: string; details?: string } = { error: '알 수 없는 오류' }
-          if (responseText) {
-            try {
-              const parsedError = JSON.parse(responseText)
-              error = {
-                error: parsedError.error || '알 수 없는 오류',
-                details: parsedError.details
-              }
-            } catch {
-              error = { error: responseText || '서버 오류' }
-            }
-          }
-          
-          console.error('삭제 실패:', error)
-          alert(`투표 삭제 실패: ${error.error || '알 수 없는 오류'}${error.details ? ` (${error.details})` : ''}`)
-        } catch (textError) {
-          console.error('응답 읽기 오류:', textError)
-          alert('서버 응답을 읽을 수 없습니다.')
-        }
+        // Kakao SDK가 없는 경우 클립보드 복사
+        copyToClipboard()
       }
     } catch (error) {
-      console.error('투표 삭제 네트워크 오류:', error)
-      alert(`네트워크 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
-    }
-  }
-
-  const loadComments = async (matchId: string) => {
-    try {
-      const response = await fetch(`/api/comments?matchId=${matchId}`)
-      if (response.ok) {
-        const matchComments = await response.json()
-        setComments(prev => ({
-          ...prev,
-          [matchId]: matchComments
-        }))
-      }
-    } catch (error) {
-      console.error('댓글 로드 오류:', error)
-    }
-  }
-
-  const handleDeleteComment = async (commentId: string, matchId: string) => {
-    if (!confirm('이 댓글을 삭제하시겠습니까?')) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/comments?id=${commentId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        // 로컬 상태에서 댓글 제거
-        setComments(prev => ({
-          ...prev,
-          [matchId]: prev[matchId]?.filter(comment => comment.id !== commentId) || []
-        }))
-        setSuccessMessage('댓글이 삭제되었습니다.')
-        setTimeout(() => setSuccessMessage(null), 3000)
-      } else {
-        const error = await response.json()
-        alert(error.error || '댓글 삭제 중 오류가 발생했습니다.')
-      }
-    } catch (error) {
-      console.error('댓글 삭제 오류:', error)
-      alert('댓글 삭제 중 오류가 발생했습니다.')
+      console.error('카카오톡 공유 오류:', error)
+      copyToClipboard()
     }
   }
 
   const ongoingMatches = matches.filter(match => !isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
   const closedMatches = matches.filter(match => isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime))
 
-  // 로그인 화면
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        {/* 헤더 */}
-        <div className="bg-white border-b border-gray-100 px-5 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-gray-900">관리자 로그인</h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center p-3 mt-16">
-          <Card className="w-full max-w-sm border-0 shadow-sm">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-xl text-center">관리자 인증</CardTitle>
-              <CardDescription className="text-center text-sm">경기 일정을 관리하려면 비밀번호를 입력하세요</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password" className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  비밀번호
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleLogin()}
-                  placeholder="비밀번호를 입력하세요"
-                  className="text-center"
-                />
-              </div>
-              <Button onClick={handleLogin} className="w-full rounded-full">
-                로그인
-              </Button>
-              <Separator />
-              <div className="text-center">
-                <Link href="/">
-                  <Button variant="outline" className="w-full flex items-center justify-center gap-2 rounded-full">
-                    <ArrowLeft className="h-4 w-4" />
-                    메인으로 돌아가기
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <LoginForm
+        password={password}
+        setPassword={setPassword}
+        onLogin={handleLogin}
+      />
     )
   }
 
-  // 관리자 메인 화면
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <div className="bg-white border-b border-gray-100 px-5 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-gray-900">관리자</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/">
-              <Button variant="destructive" size="sm" className="px-2 py-1">
-                로그아웃
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
+      <AdminHeader onLogout={() => setIsAuthenticated(false)} />
 
       <div className="px-3 py-4 pb-8">
         {/* 성공 메시지 */}
@@ -775,798 +536,63 @@ export default function AdminPage() {
           </div>
         )}
         
-        {/* 메인 탭 네비게이션 */}
-        <div className="flex gap-1 mb-4">
-          <button
-            onClick={() => setMainTab('matches')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              mainTab === 'matches'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            경기 관리
-          </button>
-          <button
-            onClick={() => setMainTab('members')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              mainTab === 'members'
-                ? 'bg-green-100 text-green-700 border border-green-200'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            팀원 관리
-          </button>
-        </div>
+        <AdminTabs mainTab={mainTab} setMainTab={setMainTab} />
         
         {mainTab === 'matches' && (
           <div className="grid gap-4 lg:grid-cols-2">
-            {/* 경기 등록/수정 폼 */}
-            <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                {isEditing ? (
-                  <>
-                    <Edit className="h-4 w-4" />
-                    경기 수정
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="h-4 w-4" />새 경기 등록
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="date" className="flex items-center gap-1 text-sm">
-                      <Calendar className="h-3 w-3" />
-                      경기 날짜
-                    </Label>
-                    <Input
-                      id="date"
-                      className="text-sm"
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="flex items-center gap-1 text-sm">
-                      <Clock className="h-3 w-3" />
-                      경기 시간
-                    </Label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.time.split(':')[0] || ''}
-                        onChange={(e) => {
-                          const hour = e.target.value
-                          const minute = formData.time.split(':')[1] || '00'
-                          setFormData({ ...formData, time: `${hour}:${minute}` })
-                        }}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-                        required
-                      >
-                        <option value="">시간</option>
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <option key={i} value={i.toString().padStart(2, '0')}>
-                            {i.toString().padStart(2, '0')}시
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={formData.time.split(':')[1] || ''}
-                        onChange={(e) => {
-                          const hour = formData.time.split(':')[0] || '00'
-                          const minute = e.target.value
-                          setFormData({ ...formData, time: `${hour}:${minute}` })
-                        }}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-                        required
-                      >
-                        <option value="">분</option>
-                        {['00', '15', '30', '45'].map((minute) => (
-                          <option key={minute} value={minute}>
-                            {minute}분
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1 relative">
-                    <Label htmlFor="venue" className="flex items-center gap-1 text-sm">
-                      <MapPin className="h-3 w-3" />
-                      경기장
-                    </Label>
-                    <Input
-                      id="venue"
-                      value={formData.venue}
-                      onChange={(e) => {
-                        setFormData({ ...formData, venue: e.target.value })
-                        setShowVenueSuggestions(e.target.value.length > 0 && venueSuggestions.length > 0)
-                      }}
-                      onFocus={() => setShowVenueSuggestions(formData.venue.length > 0 && venueSuggestions.length > 0)}
-                      onBlur={() => setTimeout(() => setShowVenueSuggestions(false), 150)}
-                      placeholder="경기장 이름"
-                      required
-                      className="text-sm"
-                    />
-                    {/* 자동완성 드롭다운 */}
-                    {showVenueSuggestions && (
-                      <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1">
-                        {venueSuggestions
-                          .filter(venue => venue.toLowerCase().includes(formData.venue.toLowerCase()))
-                          .map((venue, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => {
-                                setFormData({ ...formData, venue })
-                                setShowVenueSuggestions(false)
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg border-b border-gray-100 last:border-b-0"
-                            >
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-3 w-3 text-gray-400" />
-                                {venue}
-                              </div>
-                            </button>
-                          ))}
-                        {venueSuggestions.filter(venue => venue.toLowerCase().includes(formData.venue.toLowerCase())).length === 0 && (
-                          <div className="px-3 py-2 text-sm text-gray-500">
-                            검색 결과가 없습니다
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="maxAttendees" className="flex items-center gap-1 text-sm">
-                      <Users className="h-3 w-3" />
-                      최대인원
-                    </Label>
-                    <Input
-                      id="maxAttendees"
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={formData.maxAttendees}
-                                              onChange={(e) => {
-                          const value = e.target.value
-                          if (value === '') {
-                            setFormData({ ...formData, maxAttendees: '' })
-                          } else {
-                            const numValue = parseInt(value)
-                            if (!isNaN(numValue) && numValue >= 1 && numValue <= 50) {
-                              setFormData({ ...formData, maxAttendees: numValue })
-                            }
-                          }
-                        }}
-                      placeholder="20"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="voteDeadline" className="flex items-center gap-1 text-sm">
-                      <Calendar className="h-3 w-3" />
-                      투표 마감일
-                    </Label>
-                    <Input
-                      id="voteDeadline"
-                      type="date"
-                      value={formData.voteDeadline}
-                      onChange={(e) => setFormData({ ...formData, voteDeadline: e.target.value })}
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="flex items-center gap-1 text-sm">
-                      <Clock className="h-3 w-3" />
-                      마감 시간
-                    </Label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.voteDeadlineTime.split(':')[0] || '23'}
-                        onChange={(e) => {
-                          const hour = e.target.value
-                          const minute = formData.voteDeadlineTime.split(':')[1] || '59'
-                          setFormData({ ...formData, voteDeadlineTime: `${hour}:${minute}` })
-                        }}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-                        required
-                      >
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <option key={i} value={i.toString().padStart(2, '0')}>
-                            {i.toString().padStart(2, '0')}시
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={formData.voteDeadlineTime.split(':')[1] || '59'}
-                        onChange={(e) => {
-                          const hour = formData.voteDeadlineTime.split(':')[0] || '23'
-                          const minute = e.target.value
-                          setFormData({ ...formData, voteDeadlineTime: `${hour}:${minute}` })
-                        }}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-                        required
-                      >
-                        {['00', '15', '30', '45', '59'].map((minute) => (
-                          <option key={minute} value={minute}>
-                            {minute}분
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button type="submit" className="flex-1 rounded-full text-sm py-2">
-                    {isEditing ? "수정하기" : "등록하기"}
-                  </Button>
-                  {isEditing && (
-                    <Button type="button" variant="outline" onClick={resetForm} className="rounded-full text-sm py-2">
-                      취소
-                    </Button>
-                  )}
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* 등록된 경기 목록 */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                등록된 경기 목록
-              </CardTitle>
-              {/* 탭 메뉴 */}
-              <div className="flex gap-1 mt-4">
-                <button
-                  onClick={() => setActiveTab('ongoing')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    activeTab === 'ongoing'
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  투표 진행중 ({ongoingMatches.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('closed')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    activeTab === 'closed'
-                      ? 'bg-red-100 text-red-700 border border-red-200'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  투표 마감 ({closedMatches.length})
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {(activeTab === 'ongoing' ? ongoingMatches : closedMatches).length === 0 ? (
-                  <div className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                    <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                    <p>{activeTab === 'ongoing' ? '진행중인 경기가 없습니다.' : '마감된 경기가 없습니다.'}</p>
-                    <p className="text-sm text-gray-400 mt-1">새 경기를 등록해보세요!</p>
-                  </div>
-                ) : (
-                  (activeTab === 'ongoing' ? ongoingMatches : closedMatches).map((match) => {
-                    const dateInfo = formatDate(match.date)
-                    const deadlineInfo = formatDate(match.voteDeadline)
-                    const isPassed = isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime)
-
-                    return (
-                      <div
-                        key={match.id}
-                        className={`border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white ${
-                          isPassed ? 'border-red-200 bg-red-50' : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            {/* 경기 날짜 - 가장 중요한 정보 */}
-                            <div className="mb-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <div className="text-lg font-bold text-gray-900">{dateInfo.fullDate}</div>
-                                <div className="text-base font-semibold text-blue-600">{match.time}</div>
-                                {isPassed && (
-                                  <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">
-                                    투표 마감
-                                  </span>
-                                )}
-                                {!isPassed && (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
-                                    투표 진행중
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* 경기장 정보와 참석 정보 */}
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
-                                <MapPin className="h-4 w-4" />
-                                <span>{match.venue}</span>
-                              </div>
-
-                              {/* 참석/불참 정보 - 칩 모양 */}
-                              <div className="flex flex-col gap-1 text-xs">
-                                <div className="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
-                                  <span className="font-medium">참석</span>
-                                  <span className="font-bold">{match.attendanceVotes.attend}/{match.maxAttendees || 20}</span>
-                                </div>
-                                <div className="px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-full flex items-center gap-1 opacity-60">
-                                  <span className="font-medium">불참</span>
-                                  <span className="font-bold">{match.attendanceVotes.absent}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* 투표 마감일시 */}
-                            <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
-                              <Clock className="h-3 w-3" />
-                              <span>투표 마감: {deadlineInfo.fullDate} {match.voteDeadlineTime || '23:59'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 참석자/불참자 목록 */}
-                        {match.voters && match.voters.length > 0 && (
-                          <div className="pt-3 border-t border-gray-100">
-                            <div className="grid grid-cols-2 gap-4">
-                              {/* 참석자 */}
-                              <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                  <span className="text-sm font-medium text-gray-700">참석자</span>
-                                  <span className="text-xs text-gray-500">
-                                    {match.voters.filter(v => v.vote === 'attend').length}명
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {match.voters
-                                    .filter(voter => voter.vote === 'attend')
-                                    .map((voter, index) => (
-                                      <div key={index} className={`inline-flex items-center px-2 py-1 text-xs border rounded transition-colors ${
-                                        voter.type === 'guest' 
-                                          ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                                          : 'bg-green-50 text-green-700 border-green-200'
-                                      }`}>
-                                        <span className="mr-2">
-                                          {voter.name}
-                                          {voter.type === 'guest' && voter.inviter && ` (${voter.inviter} 지인)`}
-                                        </span>
-                                        <button
-                                          onClick={() => handleDeleteVote(match.id, voter.name)}
-                                          className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
-                                          title="투표 삭제"
-                                        >
-                                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {match.voters.filter(v => v.vote === 'attend').length === 0 && (
-                                    <span className="text-xs text-gray-400">아직 없음</span>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              {/* 불참자 */}
-                              <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                  <span className="text-sm font-medium text-gray-700">불참자</span>
-                                  <span className="text-xs text-gray-500">
-                                    {match.voters.filter(v => v.vote === 'absent').length}명
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {match.voters
-                                    .filter(voter => voter.vote === 'absent')
-                                    .map((voter, index) => (
-                                      <div key={index} className="inline-flex items-center px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded transition-colors">
-                                        <span className="mr-2">{voter.name}</span>
-                                        <button
-                                          onClick={() => handleDeleteVote(match.id, voter.name)}
-                                          className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
-                                          title="투표 삭제"
-                                        >
-                                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {match.voters.filter(v => v.vote === 'absent').length === 0 && (
-                                    <span className="text-xs text-gray-400">아직 없음</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 댓글 섹션 */}
-                        <div className="pt-3 border-t border-gray-100">
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-sm font-medium text-gray-700">댓글</h4>
-                              <button
-                                onClick={() => loadComments(match.id)}
-                                className="text-xs text-blue-600 hover:text-blue-800"
-                              >
-                                댓글 불러오기
-                              </button>
-                            </div>
-                            
-                            {/* 댓글 목록 */}
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                              {comments[match.id]?.length > 0 ? (
-                                comments[match.id].map((comment) => (
-                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-2">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-xs font-medium text-gray-900">{comment.authorName}</span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-gray-500">
-                                          {new Date(comment.createdAt).toLocaleString('ko-KR', {
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                          })}
-                                        </span>
-                                        <button
-                                          onClick={() => handleDeleteComment(comment.id, match.id)}
-                                          className="flex items-center justify-center w-4 h-4 hover:bg-red-100 rounded-full transition-colors"
-                                          title="댓글 삭제"
-                                        >
-                                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <p className="text-xs text-gray-700">{comment.content}</p>
-                                  </div>
-                                ))
-                              ) : (
-                                comments[match.id] !== undefined && (
-                                  <p className="text-xs text-gray-400 text-center py-2">
-                                    댓글이 없습니다.
-                                  </p>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 관리 버튼들 - 별도 영역 */}
-                        <div className="pt-3 border-t border-gray-100">
-                          <div className="flex items-center justify-between gap-2">
-                            {/* 자동 팀편성 버튼 */}
-                            {match.voters && match.voters.filter(v => v.vote === 'attend').length >= 2 ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleTeamGeneration(match)}
-                                className="flex-1 text-sm py-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                              >
-                                <Users className="h-4 w-4 mr-2" />
-                                자동 팀편성
-                              </Button>
-                            ) : (
-                              <div className="flex-1"></div>
-                            )}
-                            
-                            {/* 수정/삭제 버튼 */}
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEdit(match)}
-                                className="h-8 w-8 p-0 rounded-full"
-                              >
-                                <Edit className="h-4 w-4" />
-                                <span className="sr-only">수정</span>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleDelete(match.id)}
-                                className="h-8 w-8 p-0 rounded-full"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">삭제</span>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            <MatchForm
+              formData={formData}
+              setFormData={setFormData}
+              isEditing={isEditing}
+              handleSubmit={handleSubmit}
+              resetForm={resetForm}
+              venueSuggestions={venueSuggestions}
+              showVenueSuggestions={showVenueSuggestions}
+              setShowVenueSuggestions={setShowVenueSuggestions}
+            />
+            <MatchList
+              ongoingMatches={ongoingMatches}
+              closedMatches={closedMatches}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              formatDate={formatDate}
+              isVoteDeadlinePassed={isVoteDeadlinePassed}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+            />
           </div>
         )}
 
         {mainTab === 'members' && (
-          <div className="grid gap-4 lg:grid-cols-2 pb-6">
-            {/* 팀원 등록/수정 폼 */}
-            <Card className="border-0 shadow-sm" data-member-form>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  {editingMember ? (
-                    <>
-                      <Edit className="h-4 w-4" />
-                      팀원 수정
-                    </>
-                  ) : (
-                    <>
-                      <Users className="h-4 w-4" />
-                      새 팀원 등록
-                    </>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <form onSubmit={handleMemberSubmit} className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="memberName" className="flex items-center gap-1 text-sm">
-                      <Users className="h-3 w-3" />
-                      이름
-                    </Label>
-                    <Input
-                      id="memberName"
-                      value={memberFormData.name}
-                      onChange={(e) => setMemberFormData({ ...memberFormData, name: e.target.value })}
-                      placeholder="팀원 이름"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="memberLevel" className="flex items-center gap-1 text-sm">
-                      레벨
-                    </Label>
-                    <select
-                      id="memberLevel"
-                      value={memberFormData.level}
-                      onChange={(e) => setMemberFormData({ ...memberFormData, level: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-                      required
-                    >
-                      <option value={1}>루키</option>
-                      <option value={2}>비기너</option>
-                      <option value={3}>아마추어</option>
-                      <option value={4}>세미프로</option>
-                      <option value={5}>프로</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button type="submit" className="flex-1 rounded-full text-sm py-2">
-                      {editingMember ? "수정하기" : "등록하기"}
-                    </Button>
-                    {editingMember && (
-                      <Button type="button" variant="outline" onClick={resetMemberForm} className="rounded-full text-sm py-2">
-                        취소
-                      </Button>
-                    )}
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* 등록된 팀원 목록 */}
-            <Card className="border-0 shadow-sm mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  등록된 팀원 목록 ({members.length}명)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-6">
-                <div className="space-y-4">
-                  {members.length === 0 ? (
-                    <div className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                      <Users className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                      <p>등록된 팀원이 없습니다.</p>
-                      <p className="text-sm text-gray-400 mt-1">첫 팀원을 등록해보세요!</p>
-                    </div>
-                  ) : (
-                    (() => {
-                      const getLevelName = (level: number) => {
-                        switch (level) {
-                          case 1: return "루키"
-                          case 2: return "비기너"
-                          case 3: return "아마추어"
-                          case 4: return "세미프로"
-                          case 5: return "프로"
-                          default: return `레벨 ${level}`
-                        }
-                      }
-
-                      const getLevelColor = (level: number) => {
-                        switch (level) {
-                          case 5: return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' }
-                          case 4: return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' }
-                          case 3: return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' }
-                          case 2: return { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' }
-                          case 1: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
-                          default: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
-                        }
-                      }
-
-                      // 레벨별로 그룹화 (프로 > 세미프로 > 아마추어 > 비기너 > 루키 순)
-                      const groupedMembers = members.reduce((groups, member) => {
-                        const level = member.level
-                        if (!groups[level]) {
-                          groups[level] = []
-                        }
-                        groups[level].push(member)
-                        return groups
-                      }, {} as Record<number, Member[]>)
-
-                      // 레벨 순서대로 정렬 (5 > 4 > 3 > 2 > 1)
-                      const sortedLevels = Object.keys(groupedMembers)
-                        .map(Number)
-                        .sort((a, b) => b - a)
-
-                      return sortedLevels.map(level => {
-                        const levelMembers = groupedMembers[level].sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
-                        const colors = getLevelColor(level)
-                        
-                        return (
-                          <div key={level} className="space-y-2">
-                            {/* 레벨 헤더 */}
-                            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${colors.bg} ${colors.border} border`}>
-                              <span className={`text-sm font-semibold ${colors.text}`}>
-                                {getLevelName(level)}
-                              </span>
-                              <span className={`text-xs ${colors.text} opacity-70`}>
-                                ({levelMembers.length}명)
-                              </span>
-                            </div>
-
-                            {/* 해당 레벨의 팀원들 */}
-                            <div className="space-y-2 ml-4">
-                              {levelMembers.map((member) => (
-                                <div
-                                  key={member.id}
-                                  className="border rounded-lg p-3 hover:shadow-md transition-shadow bg-white border-gray-200"
-                                >
-                                  <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-sm font-bold text-gray-900">{member.name}</div>
-                                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${colors.bg} ${colors.text} ${colors.border} border`}>
-                                        {getLevelName(member.level)}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleMemberEdit(member)}
-                                        className="h-8 w-8 p-0 rounded-full"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                        <span className="sr-only">수정</span>
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => handleMemberDelete(member.id)}
-                                        className="h-8 w-8 p-0 rounded-full"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                        <span className="sr-only">삭제</span>
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })
-                    })()
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <MemberForm
+              memberFormData={memberFormData}
+              setMemberFormData={setMemberFormData}
+              isEditing={!!editingMember}
+              handleMemberSubmit={handleMemberSubmit}
+              resetMemberForm={resetMemberForm}
+            />
+            <MemberList
+              members={members}
+              handleMemberEdit={handleMemberEdit}
+              handleMemberDelete={handleMemberDelete}
+            />
           </div>
         )}
 
-        {/* 자동 팀편성 모달 */}
-        {showTeamModal && selectedMatch && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <CardHeader className="space-y-1 pb-4">
-                <CardTitle className="text-xl text-center flex items-center justify-center gap-2">
-                  <Users className="h-5 w-5" />
-                  자동 팀편성
-                </CardTitle>
-                <CardDescription className="text-center">
-                  {formatDate(selectedMatch.date).fullDate} {selectedMatch.time} - {selectedMatch.venue}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-600">
-                    참석자 {selectedMatch.voters?.filter(v => v.vote === 'attend').length || 0}명을 레벨 가중치에 따라 공평하게 팀을 나눕니다.
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="teamCount">팀 개수</Label>
-                    <select
-                      id="teamCount"
-                      value={teamCount}
-                      onChange={(e) => setTeamCount(parseInt(e.target.value))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-                    >
-                      {(() => {
-                        const attendeeCount = selectedMatch.voters?.filter(v => v.vote === 'attend').length || 0
-                        const maxTeams = Math.min(4, Math.max(2, Math.floor(attendeeCount / 2)))
-                        return Array.from({ length: maxTeams - 1 }, (_, i) => i + 2).map((num) => (
-                          <option key={num} value={num}>
-                            {num}팀
-                          </option>
-                        ))
-                      })()}
-                    </select>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button onClick={handleGenerateTeams} className="flex-1">
-                      팀편성 생성
-                    </Button>
-                    <Button variant="outline" onClick={() => setShowTeamModal(false)}>
-                      취소
-                    </Button>
-                  </div>
-
-                  {generatedTeams && (
-                    <div className="mt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-gray-900">팀편성 결과</h3>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={copyToClipboard}>
-                            복사하기
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={shareToKakao} className="bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100">
-                            카톡 공유
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 p-4 rounded-lg border">
-                        <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800">
-                          {generatedTeams}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <TeamModal
+          showTeamModal={showTeamModal}
+          selectedMatch={selectedMatch}
+          teamCount={teamCount}
+          setTeamCount={setTeamCount}
+          generatedTeams={generatedTeams}
+          handleGenerateTeams={handleGenerateTeams}
+          copyToClipboard={copyToClipboard}
+          shareToKakao={shareToKakao}
+          formatDate={formatDate}
+          setShowTeamModal={setShowTeamModal}
+        />
       </div>
     </div>
   )
-}
+} 

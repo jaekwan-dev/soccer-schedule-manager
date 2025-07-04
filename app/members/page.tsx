@@ -95,74 +95,156 @@ export default function MembersPage() {
             (() => {
               const getLevelName = (level: number) => {
                 switch (level) {
-                  case 1: return "루키"
-                  case 2: return "비기너"
-                  case 3: return "아마추어"
-                  case 4: return "세미프로"
-                  case 5: return "프로"
+                  case 1: return "루키 1"
+                  case 2: return "비기너 1"
+                  case 3: return "비기너 2"
+                  case 4: return "비기너 3"
+                  case 5: return "아마추어 1"
+                  case 6: return "아마추어 2"
+                  case 7: return "아마추어 3"
+                  case 8: return "아마추어 4"
+                  case 9: return "아마추어 5"
+                  case 10: return "세미프로 1"
+                  case 11: return "세미프로 2"
+                  case 12: return "세미프로 3"
+                  case 13: return "프로 1"
                   default: return `레벨 ${level}`
+                }
+              }
+
+              const getCategoryName = (level: number) => {
+                if (level === 1) return "루키"
+                if (level >= 2 && level <= 4) return "비기너"
+                if (level >= 5 && level <= 9) return "아마추어"
+                if (level >= 10 && level <= 12) return "세미프로"
+                if (level === 13) return "프로"
+                return "기타"
+              }
+
+
+
+              const getCategoryIcon = (category: string) => {
+                switch (category) {
+                  case "루키": return "🥾"
+                  case "비기너": return "⚽"
+                  case "아마추어": return "🏆"
+                  case "세미프로": return "⭐"
+                  case "프로": return "🥇"
+                  default: return "⚽"
+                }
+              }
+
+              const getCategoryColor = (category: string) => {
+                switch (category) {
+                  case "프로": return { bg: 'bg-gradient-to-r from-yellow-100 to-orange-100', text: 'text-orange-800', border: 'border-orange-300' }
+                  case "세미프로": return { bg: 'bg-gradient-to-r from-blue-100 to-indigo-100', text: 'text-blue-800', border: 'border-blue-300' }
+                  case "아마추어": return { bg: 'bg-gradient-to-r from-green-100 to-emerald-100', text: 'text-green-800', border: 'border-green-300' }
+                  case "비기너": return { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' }
+                  case "루키": return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
+                  default: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
+                }
+              }
+
+
+
+              const getLevelIcon = (level: number) => {
+                switch (level) {
+                  case 1: return "🥾"
+                  case 2: return "⚽"
+                  case 3: return "🏃"
+                  case 4: return "👟"
+                  case 5: return "🏆"
+                  case 6: return "⭐"
+                  case 7: return "🔥"
+                  case 8: return "👑"
+                  case 9: return "💎"
+                  case 10: return "🌟"
+                  case 11: return "🎯"
+                  case 12: return "⚡"
+                  case 13: return "🥇"
+                  default: return "⚽"
                 }
               }
 
               const getLevelColor = (level: number) => {
                 switch (level) {
-                  case 5: return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' }
+                  case 13: return { bg: 'bg-gradient-to-r from-yellow-100 to-orange-100', text: 'text-orange-800', border: 'border-orange-300' }
+                  case 12: return { bg: 'bg-gradient-to-r from-purple-100 to-pink-100', text: 'text-purple-800', border: 'border-purple-300' }
+                  case 11: return { bg: 'bg-gradient-to-r from-purple-100 to-indigo-100', text: 'text-purple-800', border: 'border-purple-300' }
+                  case 10: return { bg: 'bg-gradient-to-r from-blue-100 to-indigo-100', text: 'text-blue-800', border: 'border-blue-300' }
+                  case 9: return { bg: 'bg-gradient-to-r from-green-100 to-emerald-100', text: 'text-green-800', border: 'border-green-300' }
+                  case 8: return { bg: 'bg-gradient-to-r from-green-100 to-teal-100', text: 'text-green-800', border: 'border-green-300' }
+                  case 7: return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' }
+                  case 6: return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' }
+                  case 5: return { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200' }
                   case 4: return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' }
-                  case 3: return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' }
+                  case 3: return { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-200' }
                   case 2: return { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' }
                   case 1: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
                   default: return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' }
                 }
               }
 
-              // 레벨별로 그룹화 (프로 > 세미프로 > 아마추어 > 비기너 > 루키 순)
+              // 카테고리별로 그룹화 (프로 > 세미프로 > 아마추어 > 비기너 > 루키 순)
               const groupedMembers = members.reduce((groups, member) => {
-                const level = member.level
-                if (!groups[level]) {
-                  groups[level] = []
+                const category = getCategoryName(member.level)
+                if (!groups[category]) {
+                  groups[category] = []
                 }
-                groups[level].push(member)
+                groups[category].push(member)
                 return groups
-              }, {} as Record<number, Member[]>)
+              }, {} as Record<string, Member[]>)
 
-              // 레벨 순서대로 정렬 (5 > 4 > 3 > 2 > 1)
-              const sortedLevels = Object.keys(groupedMembers)
-                .map(Number)
-                .sort((a, b) => b - a)
+              // 카테고리 순서대로 정렬 (프로 > 세미프로 > 아마추어 > 비기너 > 루키)
+              const categoryOrder = ["프로", "세미프로", "아마추어", "비기너", "루키"]
+              const sortedCategories = categoryOrder.filter(category => groupedMembers[category])
 
-              return sortedLevels.map(level => {
-                const levelMembers = groupedMembers[level].sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
-                const colors = getLevelColor(level)
+              return sortedCategories.map(category => {
+                const categoryMembers = groupedMembers[category].sort((a, b) => {
+                  // 먼저 레벨로 정렬 (높은 레벨이 위로)
+                  if (a.level !== b.level) {
+                    return b.level - a.level
+                  }
+                  // 레벨이 같으면 이름으로 정렬
+                  return a.name.localeCompare(b.name, 'ko-KR')
+                })
+                const colors = getCategoryColor(category)
                 
                 return (
-                  <div key={level} className="space-y-2">
-                    {/* 레벨 헤더 */}
+                  <div key={category} className="space-y-2">
+                    {/* 카테고리 헤더 */}
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${colors.bg} ${colors.border} border`}>
-                      <span className={`text-sm font-semibold ${colors.text}`}>
-                        {getLevelName(level)}
-                      </span>
-                      <span className={`text-xs ${colors.text} opacity-70`}>
-                        ({levelMembers.length}명)
+                      <span className="text-lg">{getCategoryIcon(category)}</span>
+                      <div className="flex flex-col">
+                        <span className={`text-sm font-semibold ${colors.text}`}>
+                          {category}
+                        </span>
+                      </div>
+                      <span className={`text-xs ${colors.text} opacity-70 ml-auto`}>
+                        ({categoryMembers.length}명)
                       </span>
                     </div>
 
-                    {/* 해당 레벨의 팀원들 */}
+                    {/* 해당 카테고리의 팀원들 */}
                     <div className="space-y-2 ml-4">
-                      {levelMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="border rounded-lg p-3 bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-bold text-gray-900">{member.name}</div>
-                              <span className={`px-2 py-1 text-xs rounded-full font-medium ${colors.bg} ${colors.text} ${colors.border} border`}>
-                                {getLevelName(member.level)}
-                              </span>
+                      {categoryMembers.map((member) => {
+                        const levelColors = getLevelColor(member.level)
+                        return (
+                          <div
+                            key={member.id}
+                            className="border rounded-lg p-3 bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-bold text-gray-900">{member.name}</div>
+                                <span className={`px-2 py-1 text-xs rounded-full font-medium ${levelColors.bg} ${levelColors.text} ${levelColors.border} border`}>
+                                  {getLevelName(member.level)}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )
