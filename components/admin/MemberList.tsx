@@ -3,7 +3,6 @@ import { Edit, Trash2 } from "lucide-react";
 import React from "react";
 import {
   getLevelName,
-  getLevelIcon,
   getLevelColor,
   getCategoryName,
   getCategoryIcon,
