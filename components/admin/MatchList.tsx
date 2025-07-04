@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Clock, Edit, Trash2 } from "lucide-react";
+import { Calendar, MapPin, Clock, Edit, Trash2, Users } from "lucide-react";
 import React from "react";
 
 interface Match {
@@ -34,6 +34,7 @@ interface MatchListProps {
   isVoteDeadlinePassed: (deadline: string, deadlineTime?: string) => boolean;
   handleEdit: (match: Match) => void;
   handleDelete: (id: string) => void;
+  handleOpenTeamModal: (match: Match) => void;
 }
 
 export default function MatchList({
@@ -45,6 +46,7 @@ export default function MatchList({
   isVoteDeadlinePassed,
   handleEdit,
   handleDelete,
+  handleOpenTeamModal,
 }: MatchListProps) {
   const matches = activeTab === 'ongoing' ? ongoingMatches : closedMatches;
   return (
@@ -138,6 +140,10 @@ export default function MatchList({
                       <Button size="sm" variant="outline" onClick={() => handleEdit(match)} className="h-8 w-8 p-0 rounded-full">
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">수정</span>
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleOpenTeamModal(match)} className="h-8 w-8 p-0 rounded-full">
+                        <Users className="h-4 w-4" />
+                        <span className="sr-only">팀편성</span>
                       </Button>
                       <Button size="sm" variant="destructive" onClick={() => handleDelete(match.id)} className="h-8 w-8 p-0 rounded-full">
                         <Trash2 className="h-4 w-4" />

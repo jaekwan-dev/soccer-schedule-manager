@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { MapPin, Users, Clock, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, Clock, ChevronDown, ChevronUp, Users } from 'lucide-react'
 import Image from 'next/image'
 
 interface Match {
@@ -306,6 +306,12 @@ export default function Home() {
             <h1 className="text-xl font-bold text-gray-900">뻥톡</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/members">
+              <Button variant="outline" size="sm" className="px-2 py-1">
+                <Users className="h-4 w-4 mr-1" />
+                팀원
+              </Button>
+            </Link>
             <Link href="/admin">
               <Button variant="outline" size="sm" className="px-2 py-1">
                 관리자
@@ -338,83 +344,117 @@ export default function Home() {
               </Link>
             </div>
           ) : (
-            // 경기 목록 표시
-            matches.map((match) => {
-              const dateInfo = formatDate(match.date)
-              const deadlineInfo = formatDate(match.voteDeadline)
-              const isPassed = isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime)
-              const isExpanded = expandedMatchId === match.id
-              const maxAttendees = match.maxAttendees || 20
-              const isMaxReached = match.attendanceVotes.attend >= maxAttendees
+            // 경기 목록을 "다음 일정"과 "이후 일정"으로 구분하여 표시
+            (() => {
+              // 오늘 이후의 경기만 필터링
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const upcomingMatches = matches.filter(match => {
+                const matchDate = new Date(match.date);
+                matchDate.setHours(0, 0, 0, 0);
+                return matchDate >= today;
+              }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-              return (
-                <div key={match.id} id={`match-card-${match.id}`}>
-                  <div
-                    className={`border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow bg-white cursor-pointer ${
-                      isPassed ? 'border-red-200 bg-red-50' : 'border-gray-200'
-                    } ${isExpanded ? 'shadow-md' : 'shadow-sm'}`}
-                    onClick={() => handleCardClick(match)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        {/* 경기 날짜 - 가장 중요한 정보 */}
-                        <div className="mb-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="text-lg font-bold text-gray-900">{dateInfo.fullDate}</div>
-                            <div className="text-base font-semibold text-blue-600">{match.time}</div>
-                            {isPassed && (
-                              <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">
-                                투표 마감
-                              </span>
-                            )}
-                            {!isPassed && isMaxReached && (
-                              <span className="px-2 py-1 bg-orange-100 text-orange-600 text-xs rounded-full font-medium">
-                                인원마감
-                              </span>
-                            )}
-                          </div>
-                        </div>
+              if (upcomingMatches.length === 0) {
+                return (
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-4">⚽</div>
+                    <p className="text-gray-500 mb-2">예정된 경기가 없습니다.</p>
+                  </div>
+                );
+              }
 
-                        {/* 경기장 정보와 참석 정보 */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-1 text-sm text-gray-600">
-                            <MapPin className="h-4 w-4" />
-                            <span>{match.venue}</span>
-                          </div>
+              const nextMatchDate = new Date(upcomingMatches[0].date);
+              nextMatchDate.setHours(0, 0, 0, 0);
+              const nextMatches = upcomingMatches.filter(match => {
+                const matchDate = new Date(match.date);
+                matchDate.setHours(0, 0, 0, 0);
+                return matchDate.getTime() === nextMatchDate.getTime();
+              });
+              const otherMatches = upcomingMatches.filter(match => {
+                const matchDate = new Date(match.date);
+                matchDate.setHours(0, 0, 0, 0);
+                return matchDate.getTime() !== nextMatchDate.getTime();
+              });
 
-                          {/* 참석/불참 정보 - 칩 모양 */}
-                          <div className="flex flex-col gap-1 text-xs">
-                            <div className="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
-                              <span className="font-medium">참석</span>
-                              <span className="font-bold">{match.attendanceVotes.attend}/{match.maxAttendees || 20}</span>
+              // 경기 카드 렌더링 함수
+              const renderMatchCard = (match: Match, isNextSchedule: boolean = false) => {
+                const dateInfo = formatDate(match.date);
+                const deadlineInfo = formatDate(match.voteDeadline);
+                const isPassed = isVoteDeadlinePassed(match.voteDeadline, match.voteDeadlineTime);
+                const isExpanded = expandedMatchId === match.id;
+                const maxAttendees = match.maxAttendees || 20;
+                const isMaxReached = match.attendanceVotes.attend >= maxAttendees;
+                
+                return (
+                  <div key={match.id} id={`match-card-${match.id}`}>
+                    <div
+                      className={`border rounded-lg p-4 space-y-3 hover:shadow-md transition-all duration-200 cursor-pointer ${
+                        isPassed ? 'border-red-200 bg-red-50' : 
+                        isNextSchedule ? 'border-2 border-blue-400 bg-white' : 'border-gray-200 bg-white'
+                      } ${isExpanded ? 'shadow-md' : 'shadow-sm'}`}
+                      onClick={() => handleCardClick(match)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          {/* 경기 날짜 - 가장 중요한 정보 */}
+                          <div className="mb-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="text-lg font-bold text-gray-900">{dateInfo.fullDate}</div>
+                              <div className="text-base font-semibold text-blue-600">{match.time}</div>
+                              {isPassed && (
+                                <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">
+                                  투표 마감
+                                </span>
+                              )}
+                              {!isPassed && isMaxReached && (
+                                <span className="px-2 py-1 bg-orange-100 text-orange-600 text-xs rounded-full font-medium">
+                                  인원마감
+                                </span>
+                              )}
                             </div>
-                            <div className="px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-full flex items-center gap-1 opacity-60">
-                              <span className="font-medium">불참</span>
-                              <span className="font-bold">{match.attendanceVotes.absent}</span>
+                          </div>
+
+                          {/* 경기장 정보와 참석 정보 */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <MapPin className="h-4 w-4" />
+                              <span>{match.venue}</span>
                             </div>
+
+                            {/* 참석/불참 정보 - 칩 모양 */}
+                            <div className="flex flex-col gap-1 text-xs">
+                              <div className="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
+                                <span className="font-medium">참석</span>
+                                <span className="font-bold">{match.attendanceVotes.attend}/{match.maxAttendees || 20}</span>
+                              </div>
+                              <div className="px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-full flex items-center gap-1 opacity-60">
+                                <span className="font-medium">불참</span>
+                                <span className="font-bold">{match.attendanceVotes.absent}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 투표 마감일시 */}
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <Clock className="h-3 w-3" />
+                            <span>투표 마감: {deadlineInfo.fullDate} {match.voteDeadlineTime || '23:59'}</span>
                           </div>
                         </div>
 
-                        {/* 투표 마감일시 */}
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <Clock className="h-3 w-3" />
-                          <span>투표 마감: {deadlineInfo.fullDate} {match.voteDeadlineTime || '23:59'}</span>
+                        <div className="flex items-center gap-2 ml-4">
+                          {isExpanded ? 
+                            <ChevronUp className="h-4 w-4 text-gray-400" /> : 
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          }
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 ml-4">
-                        {isExpanded ? 
-                          <ChevronUp className="h-4 w-4 text-gray-400" /> : 
-                          <ChevronDown className="h-4 w-4 text-gray-400" />
-                        }
                       </div>
                     </div>
-                  </div>
 
-                  {/* 투표 폼 또는 참석자 명단 - 카드 아래 펼쳐짐 */}
-                  {isExpanded && !isPassed && (
-                    <div className="border rounded-lg p-4 mt-4 bg-blue-50 border-blue-200 shadow-sm">
-                                                <div className="space-y-4">
+                    {/* 투표 폼 또는 참석자 명단 - 카드 아래 펼쳐짐 */}
+                    {isExpanded && !isPassed && (
+                      <div className="border rounded-lg p-4 mt-4 bg-blue-50 border-blue-200 shadow-sm">
+                        <div className="space-y-4">
                           <div className="text-center">
                             <h3 className="font-semibold text-gray-900 mb-1">참석 투표</h3>
                             {isMaxReached ? (
@@ -473,7 +513,7 @@ export default function Home() {
                                 value={voterName}
                                 onChange={(e) => handleNameChange(e.target.value)}
                                 onFocus={() => {
-                                  if (voterName.trim() && filteredMembers.length > 0 && voterType === 'member_attend') {
+                                  if (voterName.trim() && filteredMembers.length > 0 && (voterType === 'member_attend' || voterType === 'absent')) {
                                     setShowSuggestions(true)
                                   }
                                 }}
@@ -484,8 +524,8 @@ export default function Home() {
                                 className="border-0 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-500 rounded-lg transition-all duration-200"
                               />
                               
-                              {/* 자동완성 제안 목록 (팀원인 경우만) */}
-                              {showSuggestions && filteredMembers.length > 0 && voterType === 'member_attend' && (
+                              {/* 자동완성 제안 목록 (팀원 참석 및 불참인 경우) */}
+                              {showSuggestions && filteredMembers.length > 0 && (voterType === 'member_attend' || voterType === 'absent') && (
                                 <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                                   {filteredMembers.map((member) => (
                                     <div
@@ -553,8 +593,6 @@ export default function Home() {
                                 )}
                               </div>
                             )}
-
-
 
                             {/* 참석자/불참자 목록 */}
                             {match.voters && match.voters.length > 0 && (
@@ -691,86 +729,116 @@ export default function Home() {
                           </div>
                         </div>
                       </div>
-                  )}
+                    )}
 
-                  {/* 마감된 경기의 참석자 명단 */}
-                  {isExpanded && isPassed && (
-                    <div className="border rounded-lg p-4 mt-4 bg-gray-50 border-gray-200 shadow-sm">
-                      <div className="space-y-4">
-                        <div className="text-center">
-                          <h3 className="font-semibold text-gray-900 mb-1">참석자 명단</h3>
-                          <p className="text-xs text-gray-500 leading-tight">
-                            투표가 마감된 경기입니다.
-                          </p>
+                    {/* 마감된 경기의 참석자 명단 */}
+                    {isExpanded && isPassed && (
+                      <div className="border rounded-lg p-4 mt-4 bg-gray-50 border-gray-200 shadow-sm">
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <h3 className="font-semibold text-gray-900 mb-1">참석자 명단</h3>
+                            <p className="text-xs text-gray-500 leading-tight">
+                              투표가 마감된 경기입니다.
+                            </p>
+                          </div>
+
+                          {/* 참석자 목록만 표시 */}
+                          {match.voters && match.voters.length > 0 ? (
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-sm font-medium text-gray-700">참석자</span>
+                                <span className="text-xs text-gray-500">
+                                  {match.voters.filter(v => v.vote === 'attend').length}명
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {match.voters
+                                  .filter(voter => voter.vote === 'attend')
+                                  .map((voter, index) => (
+                                    <span key={index} className={`px-2 py-1 text-xs border rounded ${
+                                      voter.type === 'guest' 
+                                        ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                        : 'bg-green-50 text-green-700 border-green-200'
+                                    }`}>
+                                      {voter.name}
+                                      {voter.type === 'guest' && voter.inviter && ` (${voter.inviter} 지인)`}
+                                    </span>
+                                  ))}
+                                {match.voters.filter(v => v.vote === 'attend').length === 0 && (
+                                  <span className="text-xs text-gray-400">참석자가 없습니다</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <span className="text-sm text-gray-400">아직 투표한 사람이 없습니다</span>
+                            </div>
+                          )}
                         </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              };
 
-                        {/* 참석자 목록만 표시 */}
-                        {match.voters && match.voters.length > 0 ? (
+              return (
+                <div className="space-y-8">
+                  {/* 다음 일정 */}
+                  <div>
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-lg">⚽</span>
+                          </div>
                           <div>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-sm font-medium text-gray-700">참석자</span>
-                              <span className="text-xs text-gray-500">
-                                {match.voters.filter(v => v.vote === 'attend').length}명
-                              </span>
+                            <h2 className="text-xl font-bold text-blue-900">다음 일정</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {nextMatches.map(match => renderMatchCard(match, true))}
+                    </div>
+                  </div>
+                  {/* 이후 일정 */}
+                  {otherMatches.length > 0 && (
+                    <div>
+                      <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-lg">📅</span>
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              {match.voters
-                                .filter(voter => voter.vote === 'attend')
-                                .map((voter, index) => (
-                                  <span key={index} className={`px-2 py-1 text-xs border rounded ${
-                                    voter.type === 'guest' 
-                                      ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                                      : 'bg-green-50 text-green-700 border-green-200'
-                                  }`}>
-                                    {voter.name}
-                                    {voter.type === 'guest' && voter.inviter && ` (${voter.inviter} 지인)`}
-                                  </span>
-                                ))}
-                              {match.voters.filter(v => v.vote === 'attend').length === 0 && (
-                                <span className="text-xs text-gray-400">참석자가 없습니다</span>
-                              )}
+                            <div>
+                              <h2 className="text-xl font-bold text-gray-900">이후 일정</h2>
+                              <p className="text-sm text-gray-700">
+                                {otherMatches.length}개 경기 • 예정된 경기들
+                              </p>
                             </div>
                           </div>
-                        ) : (
-                          <div className="text-center py-4">
-                            <span className="text-sm text-gray-400">아직 투표한 사람이 없습니다</span>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-600 font-medium">다음 경기</div>
+                            <div className="text-sm text-gray-800 font-semibold">
+                              {formatDate(otherMatches[0].date).fullDate}
+                            </div>
                           </div>
-                        )}
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        {otherMatches.map(match => renderMatchCard(match, false))}
                       </div>
                     </div>
                   )}
                 </div>
-              )
-            })
+              );
+            })()
           )}
         </div>
       </div>
 
-      {/* 하단 네비게이션 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
-        <div className="flex items-center justify-around py-2">
-          <div className="flex flex-col items-center py-1 px-2">
-            <div className="w-6 h-6 mb-1 text-blue-600 text-lg">⚽</div>
-            <span className="text-xs text-blue-600 font-medium">경기목록</span>
-          </div>
-          <Link href="/calendar">
-            <button className="flex flex-col items-center py-1 px-2">
-              <Calendar className="w-6 h-6 text-gray-400 mb-1" />
-              <span className="text-xs text-gray-400">달력</span>
-            </button>
-          </Link>
-          <Link href="/members">
-            <button className="flex flex-col items-center py-1 px-2">
-              <Users className="w-6 h-6 text-gray-400 mb-1" />
-              <span className="text-xs text-gray-400">팀원</span>
-            </button>
-          </Link>
-        </div>
-      </div>
 
-      {/* 하단 네비게이션 공간 확보 */}
-      <div className="h-16"></div>
     </div>
   )
 }

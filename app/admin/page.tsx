@@ -90,7 +90,7 @@ export default function AdminPage() {
   const [mainTab, setMainTab] = useState<'matches' | 'members'>('matches')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showTeamModal, setShowTeamModal] = useState(false)
-  const [selectedMatch] = useState<Match | null>(null)
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [teamCount, setTeamCount] = useState<number>(2)
   const [generatedTeams, setGeneratedTeams] = useState<string>("")
   const [showVenueSuggestions, setShowVenueSuggestions] = useState(false)
@@ -423,23 +423,21 @@ export default function AdminPage() {
       }
     })
 
-    // 레벨별 가중치 계산
+    // 레벨별 가중치 계산 (수정된 버전)
     const levelWeights = {
-      15: 10, // 프로1
-      14: 9,  // 세미프로3
-      13: 8,  // 세미프로2
-      12: 7,  // 세미프로1
-      11: 6,  // 아마추어5
-      10: 5,  // 아마추어4
-      9: 4,   // 아마추어3
-      8: 3,   // 아마추어2
-      7: 2,   // 아마추어1
-      6: 1,   // 비기너3
-      5: 1,   // 비기너2
-      4: 1,   // 비기너1
-      3: 0,   // 루키3
-      2: 0,   // 루키2
-      1: 0,   // 루키1
+      13: 10, // 프로1
+      12: 9,  // 세미프로3
+      11: 8,  // 세미프로2
+      10: 7,  // 세미프로1
+      9: 6,   // 아마추어5
+      8: 5,   // 아마추어4
+      7: 4,   // 아마추어3
+      6: 3,   // 아마추어2
+      5: 2,   // 아마추어1
+      4: 2,   // 비기너3
+      3: 2,   // 비기너2
+      2: 2,   // 비기너1
+      1: 1,   // 루키1
     }
 
     // 팀별로 나누기
@@ -458,25 +456,35 @@ export default function AdminPage() {
         teamWeights[teamIndex] += levelWeights[member.level as keyof typeof levelWeights] || 0
       })
 
-    // 결과 문자열 생성
-    let result = `${formatDate(match.date).fullDate} ${match.time} - ${match.venue}\n`
-    result += `자동 팀편성 결과 (${attendees.length}명 → ${numTeams}팀)\n\n`
+    // 결과 문자열 생성 (보기 좋게 개선)
+    let result = `⚽ ${formatDate(match.date).fullDate} ${match.time}\n`
+    result += `📍 ${match.venue}\n`
+    result += `\n🎯 자동 팀편성 결과 (${attendees.length}명 → ${numTeams}팀)\n`
+    result += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
 
     teams.forEach((team, index) => {
-      const teamWeight = teamWeights[index]
       const memberNames = team.map(m => {
         const member = members.find(mm => mm.name === m.name)
         const levelName = getLevelName(member?.level || 1)
-        return `${m.name}(${levelName})`
-      }).join(', ')
+        return `${m.name} (${levelName})`
+      }).join('\n    ')
       
-      result += `팀${index + 1} (${team.length}명, 가중치: ${teamWeight}): ${memberNames}\n`
+      result += `🔵 팀${index + 1} (${team.length}명)\n`
+      result += `    ${memberNames}\n\n`
     })
+
+    result += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
+    result += `📱 복사하기 또는 카카오톡 공유로 팀원들에게 전달하세요!`
 
     return result
   }
 
 
+
+  const handleOpenTeamModal = (match: Match) => {
+    setSelectedMatch(match)
+    setShowTeamModal(true)
+  }
 
   const handleGenerateTeams = () => {
     if (!selectedMatch) return
@@ -559,6 +567,7 @@ export default function AdminPage() {
               isVoteDeadlinePassed={isVoteDeadlinePassed}
               handleEdit={handleEdit}
               handleDelete={handleDelete}
+              handleOpenTeamModal={handleOpenTeamModal}
             />
           </div>
         )}

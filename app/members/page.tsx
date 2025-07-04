@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { Users, Edit, Lock, Calendar } from 'lucide-react'
+import { Users, Edit, Lock, ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -65,14 +65,12 @@ export default function MembersPage() {
       <div className="bg-white border-b border-gray-100 px-5 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image 
-              src="/black_logo.png" 
-              alt="뻥랩 로고" 
-              width={32} 
-              height={32} 
-              className="rounded-full"
-            />
-            <h1 className="text-xl font-bold text-gray-900">팀원 목록</h1>
+            <Link href="/">
+              <Button variant="outline" size="sm" className="px-2 py-1">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                뒤로
+              </Button>
+            </Link>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleEditClick}>
@@ -237,30 +235,7 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* 하단 네비게이션 공간 확보 */}
-      <div className="h-20"></div>
 
-      {/* 하단 네비게이션 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
-        <div className="flex items-center justify-around py-2">
-          <Link href="/">
-            <button className="flex flex-col items-center py-1 px-2">
-              <div className="w-6 h-6 mb-1 text-gray-400 text-lg">⚽</div>
-              <span className="text-xs text-gray-400">경기목록</span>
-            </button>
-          </Link>
-          <Link href="/calendar">
-            <button className="flex flex-col items-center py-1 px-2">
-              <Calendar className="w-6 h-6 text-gray-400 mb-1" />
-              <span className="text-xs text-gray-400">달력</span>
-            </button>
-          </Link>
-          <div className="flex flex-col items-center py-1 px-2">
-            <Users className="w-6 h-6 text-blue-600 mb-1" />
-            <span className="text-xs text-blue-600 font-medium">팀원</span>
-          </div>
-        </div>
-      </div>
 
       {/* 비밀번호 모달 */}
       {showPasswordModal && (

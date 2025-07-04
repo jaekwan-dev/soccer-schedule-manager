@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Clock, Users, Calendar } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react'
 import Image from 'next/image'
 
 interface Match {
@@ -303,30 +303,7 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* 하단 네비게이션 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
-        <div className="flex items-center justify-around py-2">
-          <Link href="/">
-            <button className="flex flex-col items-center py-1 px-2">
-              <div className="w-6 h-6 mb-1 text-gray-400 text-lg">⚽</div>
-              <span className="text-xs text-gray-400">경기목록</span>
-            </button>
-          </Link>
-          <div className="flex flex-col items-center py-1 px-2">
-            <Calendar className="w-6 h-6 text-blue-600 mb-1" />
-            <span className="text-xs text-blue-600 font-medium">달력</span>
-          </div>
-          <Link href="/members">
-            <button className="flex flex-col items-center py-1 px-2">
-              <Users className="w-6 h-6 text-gray-400 mb-1" />
-              <span className="text-xs text-gray-400">팀원</span>
-            </button>
-          </Link>
-        </div>
-      </div>
 
-      {/* 하단 네비게이션 공간 확보 */}
-      <div className="h-16"></div>
     </div>
   )
 } 
