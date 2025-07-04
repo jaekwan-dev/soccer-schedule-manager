@@ -290,6 +290,35 @@ export default function AdminPage() {
     }
   }
 
+  const handleDeleteVote = async (matchId: string, voterName: string, voteType: 'attend' | 'absent') => {
+    if (!confirm(`정말로 ${voterName}의 ${voteType === 'attend' ? '참석' : '불참'} 투표를 삭제하시겠습니까?`)) return
+
+    try {
+      const response = await fetch(`/api/vote?matchId=${matchId}&voterName=${encodeURIComponent(voterName)}&voteType=${voteType}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const updatedMatch = result.match || result // API 응답 구조에 따라 처리
+        // 로컬 상태 업데이트
+        setMatches(prevMatches => 
+          prevMatches.map(match => 
+            match.id === matchId ? updatedMatch : match
+          )
+        )
+        setSuccessMessage('투표가 삭제되었습니다.')
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        const error = await response.json()
+        alert(error.error || '투표 삭제 중 오류가 발생했습니다.')
+      }
+    } catch (error) {
+      console.error('투표 삭제 오류:', error)
+      alert('투표 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       date: "",
@@ -456,25 +485,25 @@ export default function AdminPage() {
         teamWeights[teamIndex] += levelWeights[member.level as keyof typeof levelWeights] || 0
       })
 
-    // 결과 문자열 생성 (보기 좋게 개선)
-    let result = `⚽ ${formatDate(match.date).fullDate} ${match.time}\n`
-    result += `📍 ${match.venue}\n`
-    result += `\n🎯 자동 팀편성 결과 (${attendees.length}명 → ${numTeams}팀)\n`
-    result += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+    // 결과 문자열 생성 (모바일 친화적으로 개선)
+    const teamNames = ['블루팀', '오렌지팀', '화이트팀'];
+    let result = `🏆 자동 팀편성 결과 (${numTeams}팀)\n`
+    result += `📅 경기일: ${formatDate(match.date).fullDate} ${match.time}\n`
+    result += `📍 장소: ${match.venue}\n`
+    result += `👥 총 참석자: ${attendees.length}명\n\n`
 
     teams.forEach((team, index) => {
       const memberNames = team.map(m => {
         const member = members.find(mm => mm.name === m.name)
         const levelName = getLevelName(member?.level || 1)
-        return `${m.name} (${levelName})`
-      }).join('\n    ')
+        const voter = attendeeMembers.find(v => v.name === m.name)
+        const guestInfo = voter?.type === 'guest' && voter?.inviter ? ` (${voter.inviter} 지인)` : ''
+        return `${m.name} (${levelName})${guestInfo}`
+      }).join('\n')
       
-      result += `🔵 팀${index + 1} (${team.length}명)\n`
-      result += `    ${memberNames}\n\n`
+      result += `⚽ ${teamNames[index] || `팀${index + 1}`} (${team.length}명)\n`
+      result += `${memberNames}\n\n`
     })
-
-    result += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
-    result += `📱 복사하기 또는 카카오톡 공유로 팀원들에게 전달하세요!`
 
     return result
   }
@@ -568,6 +597,7 @@ export default function AdminPage() {
               handleEdit={handleEdit}
               handleDelete={handleDelete}
               handleOpenTeamModal={handleOpenTeamModal}
+              handleDeleteVote={handleDeleteVote}
             />
           </div>
         )}

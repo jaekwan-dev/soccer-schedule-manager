@@ -112,30 +112,22 @@ export async function POST(request: NextRequest) {
 
 // DELETE: 투표 삭제 (관리자용)
 export async function DELETE(request: NextRequest) {
-  console.log('DELETE 요청 시작')
-  
   try {
-    const body = await request.json()
-    const { id, voterName } = body
-    
-    console.log('요청 파라미터:', { id, voterName })
-    
-    if (!voterName) {
-      console.log('투표자 이름이 없음')
-      return NextResponse.json({ error: '투표자 이름이 필요합니다.' }, { status: 400 })
-    }
+    const { searchParams } = new URL(request.url);
+    const matchId = searchParams.get('matchId');
+    const voterName = searchParams.get('voterName');
+    const voteType = searchParams.get('voteType');
 
-    if (!id) {
-      console.log('경기 ID가 없음')
-      return NextResponse.json({ error: '경기 ID가 필요합니다.' }, { status: 400 })
+    if (!matchId || !voterName || !voteType) {
+      return NextResponse.json({ error: '경기 ID, 투표자 이름, 투표 타입이 필요합니다.' }, { status: 400 });
     }
 
     console.log('데이터베이스에서 경기 조회 시작')
     // 경기 찾기
-    const matchResults = await db.select().from(matches).where(eq(matches.id, id))
+    const matchResults = await db.select().from(matches).where(eq(matches.id, matchId))
     
     if (!matchResults || matchResults.length === 0) {
-      console.log('경기를 찾을 수 없음:', id)
+      console.log('경기를 찾을 수 없음:', matchId)
       return NextResponse.json({ error: '경기를 찾을 수 없습니다.' }, { status: 404 })
     }
 
@@ -189,7 +181,7 @@ export async function DELETE(request: NextRequest) {
         attendanceVotes: updatedAttendanceVotes,
         updatedAt: new Date(),
       })
-      .where(eq(matches.id, id))
+      .where(eq(matches.id, matchId))
       .returning()
 
     if (!updateResult || updateResult.length === 0) {

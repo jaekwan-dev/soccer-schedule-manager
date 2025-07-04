@@ -74,13 +74,9 @@ export default function TeamModal({
                 onChange={e => setTeamCount(parseInt(e.target.value))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
               >
-                {(() => {
-                  const attendeeCount = selectedMatch.voters?.filter((v: { vote: string }) => v.vote === 'attend').length || 0;
-                  const maxTeams = Math.min(4, Math.max(2, Math.floor(attendeeCount / 2)));
-                  return Array.from({ length: maxTeams - 1 }, (_, i) => i + 2).map(num => (
-                    <option key={num} value={num}>{num}팀</option>
-                  ));
-                })()}
+                {[2, 3].map(num => (
+                  <option key={num} value={num}>{num}팀</option>
+                ))}
               </select>
             </div>
 
@@ -101,7 +97,7 @@ export default function TeamModal({
                   </div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg border">
-                  <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800">{generatedTeams}</pre>
+                  <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800 break-words overflow-wrap-anywhere">{generatedTeams}</pre>
                 </div>
               </div>
             )}

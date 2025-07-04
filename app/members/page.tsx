@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { Users, Edit, Lock, ArrowLeft } from 'lucide-react'
+import { Users, Edit, Lock, ArrowLeft, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface Member {
@@ -16,6 +16,7 @@ interface Member {
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([])
+  const [loading, setLoading] = useState(true)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [password, setPassword] = useState("")
 
@@ -24,6 +25,7 @@ export default function MembersPage() {
   }, [])
 
   const loadMembers = async () => {
+    setLoading(true)
     try {
       const response = await fetch('/api/members')
       if (response.ok) {
@@ -35,6 +37,8 @@ export default function MembersPage() {
       }
     } catch (error) {
       console.error('팀원 로드 오류:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -83,7 +87,12 @@ export default function MembersPage() {
       {/* 팀원 목록 */}
       <div className="px-3 py-4 pb-8">
         <div className="space-y-3">
-          {members.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-12 w-12 mx-auto text-blue-500 mb-4 animate-spin" />
+              <p className="text-gray-500 mb-2">팀원 정보를 불러오는 중...</p>
+            </div>
+          ) : members.length === 0 ? (
             <div className="text-center py-12">
               <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500 mb-2">등록된 팀원이 없습니다.</p>
