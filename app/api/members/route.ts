@@ -77,25 +77,48 @@ export async function PUT(request: NextRequest) {
 // DELETE: 팀원 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    console.log('팀원 삭제 요청 시작');
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    console.log('삭제할 팀원 ID:', id);
 
     if (!id) {
+      console.log('팀원 ID가 없음');
       return NextResponse.json({ error: '팀원 ID가 필요합니다.' }, { status: 400 });
     }
 
+    // 먼저 팀원이 존재하는지 확인
+    console.log('팀원 존재 여부 확인 중...');
+    const existingMember = await db.select().from(members).where(eq(members.id, id));
+    console.log('기존 팀원 조회 결과:', existingMember.length > 0 ? '존재함' : '존재하지 않음');
+
+    if (existingMember.length === 0) {
+      console.log('팀원을 찾을 수 없음:', id);
+      return NextResponse.json({ error: '팀원을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    console.log('데이터베이스 삭제 실행 중...');
     const [deletedMember] = await db
       .delete(members)
       .where(eq(members.id, id))
       .returning();
 
+    console.log('삭제 결과:', deletedMember ? '성공' : '실패');
+
     if (!deletedMember) {
+      console.log('삭제된 팀원이 없음');
       return NextResponse.json({ error: '팀원을 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    console.log('팀원 삭제 완료:', id);
     return NextResponse.json({ message: '팀원이 삭제되었습니다.' });
   } catch (error) {
-    console.error('팀원 삭제 오류:', error);
+    console.error('팀원 삭제 오류 상세:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+      name: error instanceof Error ? error.name : 'Unknown'
+    });
     return NextResponse.json({ error: '팀원을 삭제할 수 없습니다.' }, { status: 500 });
   }
 } 

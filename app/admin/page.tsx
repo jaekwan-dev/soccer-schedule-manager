@@ -271,21 +271,30 @@ export default function AdminPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('정말로 이 경기를 삭제하시겠습니까?')) return
 
+    console.log('경기 삭제 시작:', id);
     try {
-      const response = await fetch(`/api/matches/${id}`, {
+      const url = `/api/matches/${id}`;
+      console.log('삭제 요청 URL:', url);
+      
+      const response = await fetch(url, {
         method: 'DELETE',
       })
 
+      console.log('삭제 응답 상태:', response.status);
+      console.log('삭제 응답 헤더:', Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
+        console.log('경기 삭제 성공');
         setSuccessMessage('경기가 삭제되었습니다.')
         setTimeout(() => setSuccessMessage(null), 3000)
         loadMatches()
       } else {
         const error = await response.json()
+        console.error('삭제 실패 응답:', error);
         alert(error.error || '경기 삭제 중 오류가 발생했습니다.')
       }
     } catch (error) {
-      console.error('경기 삭제 오류:', error)
+      console.error('경기 삭제 네트워크 오류:', error)
       alert('경기 삭제 중 오류가 발생했습니다.')
     }
   }
@@ -385,21 +394,30 @@ export default function AdminPage() {
   const handleMemberDelete = async (id: string) => {
     if (!confirm('정말로 이 팀원을 삭제하시겠습니까?')) return
 
+    console.log('팀원 삭제 시작:', id);
     try {
-      const response = await fetch(`/api/members/${id}`, {
+      const url = `/api/members?id=${id}`;
+      console.log('삭제 요청 URL:', url);
+      
+      const response = await fetch(url, {
         method: 'DELETE',
       })
 
+      console.log('삭제 응답 상태:', response.status);
+      console.log('삭제 응답 헤더:', Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
+        console.log('팀원 삭제 성공');
         setSuccessMessage('팀원이 삭제되었습니다.')
         setTimeout(() => setSuccessMessage(null), 3000)
         loadMembers()
       } else {
         const error = await response.json()
+        console.error('삭제 실패 응답:', error);
         alert(error.error || '팀원 삭제 중 오류가 발생했습니다.')
       }
     } catch (error) {
-      console.error('팀원 삭제 오류:', error)
+      console.error('팀원 삭제 네트워크 오류:', error)
       alert('팀원 삭제 중 오류가 발생했습니다.')
     }
   }
