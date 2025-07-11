@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Match, Member } from "@/types"
@@ -18,6 +18,20 @@ export default function VoteForm({ match, members, onVoteSubmit, onCancel }: Vot
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [voterType, setVoterType] = useState<'member_attend' | 'guest_attend' | 'absent'>('member_attend')
   const [inviterName, setInviterName] = useState("")
+
+  // 경기 2일 전부터 게스트 참석 활성화 여부 확인
+  const isGuestAttendEnabled = () => {
+    const matchDate = new Date(match.date)
+    const today = new Date()
+    const twoDaysBefore = new Date(matchDate)
+    twoDaysBefore.setDate(matchDate.getDate() - 2)
+    
+    // 시간을 00:00:00으로 설정하여 날짜만 비교
+    today.setHours(0, 0, 0, 0)
+    twoDaysBefore.setHours(0, 0, 0, 0)
+    
+    return today >= twoDaysBefore
+  }
 
   const handleNameChange = (value: string) => {
     setVoterName(value)
@@ -78,6 +92,15 @@ export default function VoteForm({ match, members, onVoteSubmit, onCancel }: Vot
 
   const maxAttendees = match.maxAttendees || 20
   const isMaxReached = match.attendanceVotes.attend >= maxAttendees
+  const guestAttendEnabled = isGuestAttendEnabled()
+
+  // 게스트 참석이 비활성화되어 있고 현재 게스트 참석이 선택되어 있다면 일반 참석으로 변경
+  useEffect(() => {
+    if (!guestAttendEnabled && voterType === 'guest_attend') {
+      setVoterType('member_attend')
+      setInviterName("")
+    }
+  }, [guestAttendEnabled, voterType])
 
   return (
     <div className="border rounded-lg p-4 mt-4 bg-blue-50 border-blue-200 shadow-sm">
@@ -109,7 +132,15 @@ export default function VoteForm({ match, members, onVoteSubmit, onCancel }: Vot
               <Button
                 variant={voterType === 'guest_attend' ? 'default' : 'outline'}
                 onClick={() => setVoterType('guest_attend')}
-                className={`${voterType === 'guest_attend' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-600 text-purple-600 hover:bg-purple-50'}`}
+                disabled={!guestAttendEnabled}
+                className={`${
+                  voterType === 'guest_attend' 
+                    ? 'bg-purple-600 hover:bg-purple-700' 
+                    : guestAttendEnabled 
+                      ? 'border-purple-600 text-purple-600 hover:bg-purple-50' 
+                      : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed'
+                }`}
+                title={!guestAttendEnabled ? '경기 2일 전부터 게스트 참석이 가능합니다.' : ''}
               >
                 게스트 참석
               </Button>
@@ -121,6 +152,11 @@ export default function VoteForm({ match, members, onVoteSubmit, onCancel }: Vot
                 불참
               </Button>
             </div>
+            {!guestAttendEnabled && (
+              <p className="text-xs text-gray-500 text-center">
+                * 경기 2일 전부터 게스트 참석이 가능합니다.
+              </p>
+            )}
           </div>
 
           {/* 이름 입력 */}
