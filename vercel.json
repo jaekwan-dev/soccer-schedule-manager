@@ -4,7 +4,7 @@
   "framework": "nextjs",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api).*)",
       "destination": "/"
     }
   ]
