@@ -470,7 +470,7 @@ export default function AdminPage() {
       }
     })
 
-    // 레벨별 가중치 계산 (수정된 버전)
+    // 레벨별 가중치 계산
     const levelWeights = {
       13: 10, // 프로1
       12: 9,  // 세미프로3
@@ -491,19 +491,105 @@ export default function AdminPage() {
     const teams: Array<Array<{name: string, level: number, type: string, inviter?: string}>> = Array.from({length: numTeams}, () => [])
     const teamWeights = Array.from({length: numTeams}, () => 0)
 
-    // 높은 레벨부터 팀에 배정
-    attendeeMembers
-      .sort((a, b) => b.level - a.level)
-      .forEach(member => {
-        // 가장 가중치가 낮은 팀 찾기
+    // 게스트와 초대자 관계 매핑
+    const guestInviterMap = new Map<string, string>()
+    const inviterGuestMap = new Map<string, string[]>()
+    
+    attendeeMembers.forEach(member => {
+      if (member.type === 'guest' && member.inviter) {
+        guestInviterMap.set(member.name, member.inviter)
+        if (!inviterGuestMap.has(member.inviter)) {
+          inviterGuestMap.set(member.inviter, [])
+        }
+        inviterGuestMap.get(member.inviter)!.push(member.name)
+      }
+    })
+
+    // 1단계: 팀원들을 레벨 순으로 정렬
+    const sortedMembers = attendeeMembers.sort((a, b) => b.level - a.level)
+    
+    // 2단계: 게스트가 아닌 팀원들을 먼저 배정
+    const nonGuestMembers = sortedMembers.filter(m => m.type !== 'guest')
+    const guestMembers = sortedMembers.filter(m => m.type === 'guest')
+    
+    // 팀원들을 먼저 배정
+    nonGuestMembers.forEach(member => {
+      // 가장 가중치가 낮은 팀 찾기
+      const minWeight = Math.min(...teamWeights)
+      const teamIndex = teamWeights.indexOf(minWeight)
+      
+      teams[teamIndex].push(member)
+      teamWeights[teamIndex] += levelWeights[member.level as keyof typeof levelWeights] || 0
+    })
+
+    // 3단계: 게스트들을 초대자와 같은 팀에 배정 (가능한 경우)
+    guestMembers.forEach(guest => {
+      const inviter = guestInviterMap.get(guest.name)
+      if (!inviter) {
+        // 초대자 정보가 없는 경우 일반 배정
         const minWeight = Math.min(...teamWeights)
         const teamIndex = teamWeights.indexOf(minWeight)
-        
-        teams[teamIndex].push(member)
-        teamWeights[teamIndex] += levelWeights[member.level as keyof typeof levelWeights] || 0
-      })
+        teams[teamIndex].push(guest)
+        teamWeights[teamIndex] += levelWeights[guest.level as keyof typeof levelWeights] || 0
+        return
+      }
 
-    // 결과 문자열 생성 (모바일 친화적으로 개선)
+      // 초대자가 어느 팀에 있는지 찾기
+      let inviterTeamIndex = -1
+      for (let i = 0; i < teams.length; i++) {
+        if (teams[i].some(m => m.name === inviter)) {
+          inviterTeamIndex = i
+          break
+        }
+      }
+
+      if (inviterTeamIndex !== -1) {
+        // 초대자가 있는 팀에 배정
+        teams[inviterTeamIndex].push(guest)
+        teamWeights[inviterTeamIndex] += levelWeights[guest.level as keyof typeof levelWeights] || 0
+      } else {
+        // 초대자가 아직 배정되지 않은 경우, 가장 인원이 적은 팀에 배정
+        const minMembers = Math.min(...teams.map(team => team.length))
+        const teamIndex = teams.findIndex(team => team.length === minMembers)
+        teams[teamIndex].push(guest)
+        teamWeights[teamIndex] += levelWeights[guest.level as keyof typeof levelWeights] || 0
+      }
+    })
+
+    // 4단계: 팀별 인원수 균형 조정 (필요한 경우)
+    const maxMembersPerTeam = Math.ceil(attendees.length / numTeams)
+    
+    // 인원수가 많은 팀에서 적은 팀으로 조정
+    for (let i = 0; i < teams.length; i++) {
+      if (teams[i].length > maxMembersPerTeam) {
+        // 이 팀에서 다른 팀으로 이동할 수 있는 게스트 찾기
+        const movableGuests = teams[i].filter(member => 
+          member.type === 'guest' && 
+          member.inviter && 
+          teams[i].some(m => m.name === member.inviter) // 초대자와 같은 팀에 있는 게스트
+        )
+        
+        for (const guest of movableGuests) {
+          if (teams[i].length <= maxMembersPerTeam) break
+          
+          // 인원수가 적은 팀 찾기
+          const minMembers = Math.min(...teams.map(team => team.length))
+          if (minMembers >= maxMembersPerTeam) break
+          
+          const targetTeamIndex = teams.findIndex(team => team.length === minMembers)
+          
+          // 게스트를 다른 팀으로 이동
+          teams[i] = teams[i].filter(m => m.name !== guest.name)
+          teams[targetTeamIndex].push(guest)
+          
+          // 가중치 업데이트
+          teamWeights[i] -= levelWeights[guest.level as keyof typeof levelWeights] || 0
+          teamWeights[targetTeamIndex] += levelWeights[guest.level as keyof typeof levelWeights] || 0
+        }
+      }
+    }
+
+    // 결과 문자열 생성
     const teamNames = ['블루팀', '오렌지팀', '화이트팀'];
     let result = `🏆 자동 팀편성 결과 (${numTeams}팀)\n`
     result += `📅 경기일: ${formatDate(match.date).fullDate} ${match.time}\n`
