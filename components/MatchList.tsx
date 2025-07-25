@@ -87,7 +87,7 @@ export default function MatchList({
                 <span className="text-white text-lg">⚽</span>
               </div>
               <div>
-                <h2 className="text-xl font-extrabold text-blue-900">다음 일정</h2>
+                <h2 className="text-xl font-bold text-blue-900">다음 일정</h2>
               </div>
             </div>
           </div>
